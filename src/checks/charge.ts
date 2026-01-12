@@ -20,11 +20,10 @@ export const chargeCreateCheck: Check = {
     }
 
     try {
-      const result = await client.recordUsage({
+      const result = await client.charge({
         customerId,
-        usageType: 'api_call',
+        meter: 'api_call',
         quantity: 1,
-        units: 'calls',
       });
       const duration = performance.now() - start;
 

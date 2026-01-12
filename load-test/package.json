@@ -26,6 +26,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@drip-sdk/node": "^1.0.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.0",

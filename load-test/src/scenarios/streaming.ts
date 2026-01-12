@@ -20,7 +20,7 @@ export async function runStreaming(config: ScenarioConfig): Promise<ScenarioResu
       try {
         const meter = client.createStreamMeter({
           customerId: config.customerId,
-          usageType: `load_test_stream_${streamIndex}`,
+          meter: `load_test_stream_${streamIndex}`,
         });
 
         // Accumulate random quantities
