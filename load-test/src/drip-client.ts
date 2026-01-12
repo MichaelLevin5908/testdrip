@@ -11,7 +11,7 @@ export class Drip {
   }
 
   async createCustomer(data: { externalCustomerId: string; name?: string }): Promise<{ customerId: string }> {
-    const response = await fetch(`${this.apiUrl}/customers`, {
+    const response = await fetch(`${this.apiUrl}/v1/customers`, {
       method: 'POST',
       headers: {
         'x-api-key': this.apiKey,
@@ -27,7 +27,7 @@ export class Drip {
   }
 
   async getCustomer(customerId: string): Promise<{ customerId: string; name?: string }> {
-    const response = await fetch(`${this.apiUrl}/customers/${customerId}`, {
+    const response = await fetch(`${this.apiUrl}/v1/customers/${customerId}`, {
       headers: { 'x-api-key': this.apiKey },
     });
     if (!response.ok) {
@@ -39,11 +39,12 @@ export class Drip {
 
   async charge(data: {
     customerId: string;
-    meter: string;
+    usageType: string;
     quantity: number;
+    units?: string;
     idempotencyKey?: string;
   }): Promise<{ charge: { chargeId: string; amountUsdc: string; status: string }; isReplay?: boolean }> {
-    const response = await fetch(`${this.apiUrl}/charges`, {
+    const response = await fetch(`${this.apiUrl}/v1/usage`, {
       method: 'POST',
       headers: {
         'x-api-key': this.apiKey,
@@ -52,19 +53,32 @@ export class Drip {
       },
       body: JSON.stringify({
         customerId: data.customerId,
-        meter: data.meter,
+        usageType: data.usageType,
         quantity: data.quantity,
+        units: data.units || 'units',
       }),
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new DripError(error.message || 'Failed to create charge', error.code, response.status);
     }
-    return response.json();
+    const result = await response.json() as {
+      usageEventId: string;
+      charge?: { id: string; amountUsdc: string; status: string };
+      isDuplicate?: boolean;
+    };
+    return {
+      charge: {
+        chargeId: result.charge?.id || result.usageEventId,
+        amountUsdc: result.charge?.amountUsdc || '0',
+        status: result.charge?.status || 'PENDING',
+      },
+      isReplay: result.isDuplicate,
+    };
   }
 
   async getBalance(customerId: string): Promise<{ balanceUsdc: string }> {
-    const response = await fetch(`${this.apiUrl}/customers/${customerId}/balance`, {
+    const response = await fetch(`${this.apiUrl}/v1/customers/${customerId}/balance`, {
       headers: { 'x-api-key': this.apiKey },
     });
     if (!response.ok) {
@@ -74,7 +88,7 @@ export class Drip {
     return response.json();
   }
 
-  createStreamMeter(options: { customerId: string; meter: string }): StreamMeter {
+  createStreamMeter(options: { customerId: string; usageType: string; units?: string }): StreamMeter {
     return new StreamMeter(this, options);
   }
 }
@@ -82,13 +96,15 @@ export class Drip {
 export class StreamMeter {
   private drip: Drip;
   private customerId: string;
-  private meter: string;
+  private usageType: string;
+  private units: string;
   private total: number = 0;
 
-  constructor(drip: Drip, options: { customerId: string; meter: string }) {
+  constructor(drip: Drip, options: { customerId: string; usageType: string; units?: string }) {
     this.drip = drip;
     this.customerId = options.customerId;
-    this.meter = options.meter;
+    this.usageType = options.usageType;
+    this.units = options.units || 'units';
   }
 
   addSync(quantity: number): void {
@@ -105,8 +121,9 @@ export class StreamMeter {
     }
     const result = await this.drip.charge({
       customerId: this.customerId,
-      meter: this.meter,
+      usageType: this.usageType,
       quantity: this.total,
+      units: this.units,
     });
     this.total = 0;
     return { charge: result.charge };

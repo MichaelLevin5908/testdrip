@@ -19,13 +19,13 @@ export const customerCreateCheck: Check = {
       const duration = performance.now() - start;
 
       // Store the created customer ID for subsequent checks
-      ctx.createdCustomerId = result.customerId;
+      ctx.createdCustomerId = result.id;
 
       return {
         name: 'Customer Create',
         success: true,
         duration,
-        message: result.customerId,
+        message: result.id,
       };
     } catch (error) {
       const duration = performance.now() - start;
@@ -61,7 +61,7 @@ export const customerGetCheck: Check = {
     }
 
     try {
-      const result = await client.getCustomer(customerId);
+      await client.getCustomer(customerId);
       const duration = performance.now() - start;
 
       return {
@@ -100,7 +100,7 @@ export const customerListCheck: Check = {
         name: 'Customer List',
         success: true,
         duration,
-        message: `Found ${result.customers.length} customer(s)`,
+        message: `Found ${result.count} customer(s)`,
       };
     } catch (error) {
       const duration = performance.now() - start;
