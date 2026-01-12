@@ -7,14 +7,14 @@ export class Drip {
 
   constructor(options: { apiKey: string; apiUrl?: string }) {
     this.apiKey = options.apiKey;
-    this.apiUrl = options.apiUrl || 'http://localhost:3001';
+    this.apiUrl = options.apiUrl || 'https://drip-app-hlunj.ondigitalocean.app';
   }
 
   async createCustomer(data: { externalCustomerId: string; name?: string }): Promise<{ customerId: string }> {
     const response = await fetch(`${this.apiUrl}/customers`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'x-api-key': this.apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
@@ -28,7 +28,7 @@ export class Drip {
 
   async getCustomer(customerId: string): Promise<{ customerId: string; name?: string }> {
     const response = await fetch(`${this.apiUrl}/customers/${customerId}`, {
-      headers: { 'Authorization': `Bearer ${this.apiKey}` },
+      headers: { 'x-api-key': this.apiKey },
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -46,7 +46,7 @@ export class Drip {
     const response = await fetch(`${this.apiUrl}/charges`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'x-api-key': this.apiKey,
         'Content-Type': 'application/json',
         ...(data.idempotencyKey && { 'Idempotency-Key': data.idempotencyKey }),
       },
@@ -65,7 +65,7 @@ export class Drip {
 
   async getBalance(customerId: string): Promise<{ balanceUsdc: string }> {
     const response = await fetch(`${this.apiUrl}/customers/${customerId}/balance`, {
-      headers: { 'Authorization': `Bearer ${this.apiKey}` },
+      headers: { 'x-api-key': this.apiKey },
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
