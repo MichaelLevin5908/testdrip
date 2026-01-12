@@ -17,7 +17,7 @@ export function loadConfig(): LoadTestConfig {
 
   return {
     apiKey,
-    apiUrl: process.env.DRIP_API_URL || 'http://localhost:3001',
+    apiUrl: process.env.DRIP_API_URL || 'https://drip-app-hlunj.ondigitalocean.app',
     defaultCustomerId: process.env.DEFAULT_CUSTOMER_ID,
   };
 }

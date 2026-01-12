@@ -19,7 +19,7 @@ export function loadConfig(): DripConfig {
 
   return {
     apiKey,
-    apiUrl: process.env.DRIP_API_URL || 'http://localhost:3001',
+    apiUrl: process.env.DRIP_API_URL || 'https://drip-app-hlunj.ondigitalocean.app',
     testCustomerId: process.env.TEST_CUSTOMER_ID,
     skipCleanup: process.env.SKIP_CLEANUP === 'true',
     timeout: parseInt(process.env.CHECK_TIMEOUT || '30000', 10),
