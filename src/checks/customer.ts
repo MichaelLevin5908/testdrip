@@ -96,6 +96,11 @@ export const customerListCheck: Check = {
       const result = await client.listCustomers({ limit: 10 });
       const duration = performance.now() - start;
 
+      // If no customer was created, use an existing one for subsequent checks
+      if (!ctx.createdCustomerId && result.data && result.data.length > 0) {
+        ctx.createdCustomerId = result.data[0].id;
+      }
+
       return {
         name: 'Customer List',
         success: true,

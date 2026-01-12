@@ -37,7 +37,7 @@ export const runCreateCheck: Check = {
         name: 'Run Create',
         success: true,
         duration,
-        message: result.runId,
+        message: result.run.id,
       };
     } catch (error) {
       const duration = performance.now() - start;
@@ -83,10 +83,10 @@ export const runTimelineCheck: Check = {
         status: 'COMPLETED',
       });
 
-      const runResult = await client.getRun(createResult.runId);
+      const runResult = await client.getRunTimeline(createResult.run.id);
       const duration = performance.now() - start;
 
-      const eventCount = runResult.events?.length || 0;
+      const eventCount = runResult.timeline?.length || 0;
 
       return {
         name: 'Run Timeline',

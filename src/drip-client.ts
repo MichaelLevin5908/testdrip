@@ -14,7 +14,9 @@ export class Drip {
 
   constructor(options: { apiKey: string; apiUrl?: string }) {
     this.apiKey = options.apiKey;
-    this.baseUrl = options.apiUrl || 'https://drip-app-hlunj.ondigitalocean.app';
+    // The SDK expects baseUrl to include /v1
+    const rawUrl = options.apiUrl || 'https://drip-app-hlunj.ondigitalocean.app';
+    this.baseUrl = rawUrl.endsWith('/v1') ? rawUrl : `${rawUrl}/v1`;
     this.sdk = new RealDrip({
       apiKey: options.apiKey,
       baseUrl: this.baseUrl,
@@ -38,8 +40,9 @@ export class Drip {
 
   // Customer endpoints - use SDK
   async createCustomer(data: { externalCustomerId?: string; onchainAddress?: string; name?: string }): Promise<Customer> {
-    // SDK requires onchainAddress, generate one if not provided
-    const onchainAddress = data.onchainAddress || `0x${Date.now().toString(16)}${'0'.repeat(24)}`;
+    // SDK requires onchainAddress (42 chars: 0x + 40 hex chars), generate one if not provided
+    const onchainAddress = data.onchainAddress ||
+      `0x${Date.now().toString(16).padStart(12, '0')}${Math.random().toString(16).slice(2).padEnd(28, '0')}`.slice(0, 42);
     return this.sdk.createCustomer({
       externalCustomerId: data.externalCustomerId,
       onchainAddress,

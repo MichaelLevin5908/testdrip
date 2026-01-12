@@ -10,9 +10,12 @@ export class Drip {
   private sdk: RealDrip;
 
   constructor(options: { apiKey: string; apiUrl?: string }) {
+    // The SDK expects baseUrl to include /v1
+    const rawUrl = options.apiUrl || 'https://drip-app-hlunj.ondigitalocean.app';
+    const baseUrl = rawUrl.endsWith('/v1') ? rawUrl : `${rawUrl}/v1`;
     this.sdk = new RealDrip({
       apiKey: options.apiKey,
-      baseUrl: options.apiUrl || 'https://drip-app-hlunj.ondigitalocean.app',
+      baseUrl,
     });
   }
 

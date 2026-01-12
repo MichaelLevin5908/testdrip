@@ -49,14 +49,14 @@ export const idempotencyCheck: Check = {
           message: 'Replay detected correctly',
           details: `Key: ${idempotencyKey}`,
         };
-      } else if (firstResult.charge.chargeId === secondResult.charge.chargeId) {
+      } else if (firstResult.charge.id === secondResult.charge.id) {
         // Some implementations return same charge ID instead of isReplay flag
         return {
           name: 'Idempotency',
           success: true,
           duration,
           message: 'Duplicate prevented (same charge ID)',
-          details: `Charge ID: ${firstResult.charge.chargeId}`,
+          details: `Charge ID: ${firstResult.charge.id}`,
         };
       } else {
         return {
@@ -64,7 +64,7 @@ export const idempotencyCheck: Check = {
           success: false,
           duration,
           message: 'Duplicate charge created',
-          details: `First: ${firstResult.charge.chargeId}, Second: ${secondResult.charge.chargeId}`,
+          details: `First: ${firstResult.charge.id}, Second: ${secondResult.charge.id}`,
           suggestion: 'Idempotency key was not respected - duplicate charges were created',
         };
       }

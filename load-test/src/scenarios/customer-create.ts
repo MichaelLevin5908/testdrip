@@ -25,7 +25,7 @@ export async function runCustomerCreate(config: ScenarioConfig): Promise<Scenari
         });
 
         const duration = performance.now() - start;
-        createdCustomerIds.push(result.customerId);
+        createdCustomerIds.push(result.id);
         return { success: true, duration };
       } catch (error) {
         const duration = performance.now() - start;
