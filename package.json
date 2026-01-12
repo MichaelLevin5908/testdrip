@@ -1,0 +1,39 @@
+{
+  "name": "drip-health",
+  "version": "1.0.0",
+  "description": "CLI tool that validates the Drip backend is functioning correctly",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "drip-health": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "check": "tsx src/index.ts check",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "drip",
+    "sdk",
+    "health-check",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
