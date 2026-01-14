@@ -59,7 +59,7 @@ export class Drip {
 
   async deleteCustomer(_customerId: string): Promise<void> {
     // SDK doesn't have deleteCustomer, make direct API call
-    const response = await fetch(`${this.baseUrl}/v1/customers/${_customerId}`, {
+    const response = await fetch(`${this.baseUrl}/customers/${_customerId}`, {
       method: 'DELETE',
       headers: { 'x-api-key': this.apiKey },
     });

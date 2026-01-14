@@ -82,7 +82,7 @@ export const streamMeterFlushCheck: Check = {
     try {
       const meter = client.createStreamMeter({
         customerId,
-        meter: 'health_check_stream_flush',
+        meter: 'api_calls',
       });
 
       meter.addSync(50);

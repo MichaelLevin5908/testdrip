@@ -27,7 +27,7 @@ export const balanceGetCheck: Check = {
         name: 'Balance Get',
         success: true,
         duration,
-        message: `$${result.balanceUSDC} USDC`,
+        message: `$${result.balanceUsdc} USDC`,
       };
     } catch (error) {
       const duration = performance.now() - start;

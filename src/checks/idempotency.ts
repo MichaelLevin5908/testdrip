@@ -25,7 +25,7 @@ export const idempotencyCheck: Check = {
       // First charge with idempotency key
       const firstResult = await client.charge({
         customerId,
-        meter: 'health_check_idempotency',
+        meter: 'api_calls',
         quantity: 1,
         idempotencyKey,
       });
@@ -33,7 +33,7 @@ export const idempotencyCheck: Check = {
       // Second charge with same idempotency key
       const secondResult = await client.charge({
         customerId,
-        meter: 'health_check_idempotency',
+        meter: 'api_calls',
         quantity: 1,
         idempotencyKey,
       });
