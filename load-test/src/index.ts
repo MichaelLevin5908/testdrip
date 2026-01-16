@@ -23,6 +23,7 @@ program
   .option('-c, --concurrency <number>', 'Number of concurrent requests', '50')
   .option('-t, --total <number>', 'Total number of requests', '1000')
   .option('--customer <id>', 'Customer ID to charge')
+  .option('--meter <name>', 'Meter/usage type to charge (default: api_call)', 'api_call')
   .option('--idempotency', 'Use idempotency keys')
   .option('--warmup <number>', 'Warmup requests before measuring', '0')
   .option('-o, --output <format>', 'Output format: pretty, json, csv', 'pretty')
@@ -44,6 +45,7 @@ program
         total: parseInt(options.total, 10),
         useIdempotency: options.idempotency,
         warmup: parseInt(options.warmup, 10),
+        meter: options.meter,
       };
 
       console.log(`Running charge burst: ${scenarioConfig.total} requests @ ${scenarioConfig.concurrency} concurrency`);
