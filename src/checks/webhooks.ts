@@ -1,11 +1,22 @@
+import { createHmac } from 'crypto';
 import { Check, CheckContext, CheckResult } from '../types.js';
 import { Drip } from '../drip-client.js';
 
+// Local helper to generate webhook signature (avoids ESM/CJS issues with SDK)
+function generateTestSignature(payload: string, secret: string): string {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signaturePayload = `${timestamp}.${payload}`;
+  const signature = createHmac('sha256', secret)
+    .update(signaturePayload)
+    .digest('hex');
+  return `t=${timestamp},v1=${signature}`;
+}
+
 export const webhookSignCheck: Check = {
   name: 'Webhook Sign',
-  description: 'Test webhook signature generation',
+  description: 'Test webhook signature generation and verification',
   quick: true,
-  async run(ctx: CheckContext): Promise<CheckResult> {
+  async run(_ctx: CheckContext): Promise<CheckResult> {
     const start = performance.now();
 
     try {
@@ -14,22 +25,35 @@ export const webhookSignCheck: Check = {
         data: { chargeId: 'chg_test123' },
       });
       const testSecret = 'whsec_test_secret';
-      const testSignature = 'sha256=abc123'; // Mock signature
 
-      const isValid = Drip.verifyWebhookSignature(
+      // Generate a valid signature locally
+      const validSignature = generateTestSignature(testPayload, testSecret);
+
+      // Verify the signature using the SDK's async method
+      const isValid = await Drip.verifyWebhookSignatureAsync(
         testPayload,
-        testSignature,
+        validSignature,
         testSecret
       );
 
       const duration = performance.now() - start;
 
-      return {
-        name: 'Webhook Sign',
-        success: true,
-        duration,
-        message: 'Signature valid',
-      };
+      if (isValid) {
+        return {
+          name: 'Webhook Sign',
+          success: true,
+          duration,
+          message: 'Signature valid',
+        };
+      } else {
+        return {
+          name: 'Webhook Sign',
+          success: false,
+          duration,
+          message: 'Valid signature was rejected',
+          suggestion: 'Webhook signature generation/verification is broken',
+        };
+      }
     } catch (error) {
       const duration = performance.now() - start;
       const err = error as Error;
@@ -47,7 +71,7 @@ export const webhookVerifyCheck: Check = {
   name: 'Webhook Verify',
   description: 'Test invalid signature rejection',
   quick: true,
-  async run(ctx: CheckContext): Promise<CheckResult> {
+  async run(_ctx: CheckContext): Promise<CheckResult> {
     const start = performance.now();
 
     try {
@@ -58,7 +82,7 @@ export const webhookVerifyCheck: Check = {
       const testSecret = 'whsec_test_secret';
       const invalidSignature = 'invalid_signature';
 
-      const isValid = Drip.verifyWebhookSignature(
+      const isValid = await Drip.verifyWebhookSignatureAsync(
         testPayload,
         invalidSignature,
         testSecret

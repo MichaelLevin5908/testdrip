@@ -131,7 +131,18 @@ export class Drip {
 
   // Static methods
   static verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
+    // Use the sync version since this is called synchronously in health checks
+    return RealDrip.verifyWebhookSignatureSync(payload, signature, secret);
+  }
+
+  // Also expose the async version for completeness
+  static async verifyWebhookSignatureAsync(payload: string, signature: string, secret: string): Promise<boolean> {
     return RealDrip.verifyWebhookSignature(payload, signature, secret);
+  }
+
+  // Expose the signature generation method for testing
+  static generateWebhookSignature(payload: string, secret: string, timestamp?: number): string {
+    return RealDrip.generateWebhookSignature(payload, secret, timestamp);
   }
 
   // StreamMeter factory
