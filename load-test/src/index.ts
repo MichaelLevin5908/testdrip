@@ -66,6 +66,7 @@ program
   .option('-c, --concurrency <number>', 'Number of concurrent streams', '20')
   .option('-e, --events <number>', 'Events per stream', '100')
   .option('--customer <id>', 'Customer ID')
+  .option('--meter <name>', 'Meter/usage type to charge (default: api_call)', 'api_call')
   .option('-o, --output <format>', 'Output format: pretty, json, csv', 'pretty')
   .action(async (options) => {
     try {
@@ -83,6 +84,7 @@ program
         customerId,
         concurrency: parseInt(options.concurrency, 10),
         total: parseInt(options.events, 10),
+        meter: options.meter,
       };
 
       console.log(`Running streaming test: ${scenarioConfig.concurrency} streams @ ${scenarioConfig.total} events each`);
@@ -135,6 +137,7 @@ program
   .option('-d, --duration <seconds>', 'Test duration in seconds', '60')
   .option('-r, --rps <number>', 'Requests per second', '100')
   .option('--customer <id>', 'Customer ID')
+  .option('--meter <name>', 'Meter/usage type to charge (default: api_call)', 'api_call')
   .option('-o, --output <format>', 'Output format: pretty, json, csv', 'pretty')
   .action(async (options) => {
     try {
@@ -154,6 +157,7 @@ program
         total: 0, // Not used
         duration: parseInt(options.duration, 10),
         rps: parseInt(options.rps, 10),
+        meter: options.meter,
       };
 
       console.log(`Running mixed workload: ${scenarioConfig.duration}s @ ${scenarioConfig.rps} RPS`);

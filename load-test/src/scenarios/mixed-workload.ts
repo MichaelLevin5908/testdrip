@@ -43,7 +43,7 @@ export async function runMixedWorkload(config: ScenarioConfig): Promise<Scenario
         case 'charge':
           await client.charge({
             customerId: config.customerId,
-            meter: 'load_test_mixed',
+            meter: config.meter ?? 'api_call',
             quantity: Math.floor(Math.random() * 10) + 1,
           });
           break;
