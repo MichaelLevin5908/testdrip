@@ -7,7 +7,8 @@ export const idempotencyCheck: Check = {
   async run(ctx: CheckContext): Promise<CheckResult> {
     const start = performance.now();
     const client = createClient(ctx);
-    const customerId = ctx.createdCustomerId || ctx.testCustomerId;
+    // Prefer testCustomerId (funded) for billing tests, fall back to created customer
+    const customerId = ctx.testCustomerId || ctx.createdCustomerId;
 
     if (!customerId) {
       return {
