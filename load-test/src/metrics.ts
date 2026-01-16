@@ -104,12 +104,16 @@ export async function runWithRateLimit<T>(
 ): Promise<void> {
   const interval = 1000 / rps;
   const endTime = performance.now() + durationMs;
+  const pending: Promise<void>[] = [];
 
   while (performance.now() < endTime) {
     const startTime = performance.now();
 
-    // Fire and don't wait
-    taskGenerator().then(onResult).catch(() => {});
+    // Fire and track the promise
+    const p = taskGenerator()
+      .then(onResult)
+      .catch(() => {});
+    pending.push(p);
 
     const elapsed = performance.now() - startTime;
     const waitTime = Math.max(0, interval - elapsed);
@@ -119,6 +123,9 @@ export async function runWithRateLimit<T>(
     }
   }
 
-  // Wait for remaining requests to complete
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Wait for ALL pending requests to complete (with reasonable timeout)
+  await Promise.race([
+    Promise.allSettled(pending),
+    new Promise(resolve => setTimeout(resolve, 60000)), // 60s max wait
+  ]);
 }

@@ -20,7 +20,9 @@ export class Drip {
   }
 
   async createCustomer(data: { externalCustomerId?: string; onchainAddress?: string; name?: string }): Promise<Customer> {
-    const onchainAddress = data.onchainAddress || `0x${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`.slice(0, 42);
+    // Generate valid 40-character hex address if not provided
+    const randomHex = () => Math.floor(Math.random() * 16).toString(16);
+    const onchainAddress = data.onchainAddress || `0x${Array.from({ length: 40 }, randomHex).join('')}`;
     return this.sdk.createCustomer({
       externalCustomerId: data.externalCustomerId,
       onchainAddress,
