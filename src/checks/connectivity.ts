@@ -1,5 +1,4 @@
 import { Check, CheckContext, CheckResult } from '../types.js';
-import { createClient } from '../drip-client.js';
 
 export const connectivityCheck: Check = {
   name: 'Connectivity',
@@ -7,18 +6,29 @@ export const connectivityCheck: Check = {
   quick: true,
   async run(ctx: CheckContext): Promise<CheckResult> {
     const start = performance.now();
-    const client = createClient(ctx);
+
+    // Health endpoint is at /health (root level, not under /v1)
+    // Strip /v1 suffix if present to get base URL
+    let baseUrl = ctx.apiUrl;
+    if (baseUrl.endsWith('/v1')) {
+      baseUrl = baseUrl.slice(0, -3);
+    } else if (baseUrl.endsWith('/v1/')) {
+      baseUrl = baseUrl.slice(0, -4);
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
 
     try {
-      const result = await client.ping();
+      const response = await fetch(`${baseUrl}/health`);
       const duration = performance.now() - start;
 
-      if (result.ok) {
+      if (response.ok) {
+        const data = await response.json();
         return {
           name: 'Connectivity',
           success: true,
           duration,
           message: 'API reachable',
+          details: data.status || 'healthy',
         };
       } else {
         return {
@@ -26,7 +36,7 @@ export const connectivityCheck: Check = {
           success: false,
           duration,
           message: 'API not responding',
-          suggestion: `Check if the Drip backend is running at ${ctx.apiUrl}`,
+          suggestion: `Check if the Drip backend is running at ${baseUrl}`,
         };
       }
     } catch (error) {
