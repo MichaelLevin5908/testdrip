@@ -48,11 +48,13 @@ export async function runChargeBurst(config: ScenarioConfig): Promise<ScenarioRe
       } catch (error) {
         const duration = performance.now() - start;
         const err = error as DripError;
+        // Capture more detail for debugging
+        const errorCode = err.code || (err.statusCode ? `HTTP_${err.statusCode}` : 'UNKNOWN');
         return {
           success: false,
           duration,
           error: err.message,
-          errorCode: err.code || 'UNKNOWN',
+          errorCode,
         };
       }
     });
