@@ -34,6 +34,7 @@ export interface ScenarioConfig {
   rps?: number;
   useIdempotency?: boolean;
   warmup?: number;
+  meter?: string;
 }
 
 export type ScenarioFunction = (config: ScenarioConfig) => Promise<ScenarioResult>;

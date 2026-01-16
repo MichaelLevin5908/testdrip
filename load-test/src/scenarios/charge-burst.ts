@@ -13,7 +13,7 @@ export async function runChargeBurst(config: ScenarioConfig): Promise<ScenarioRe
       try {
         await client.charge({
           customerId: config.customerId,
-          meter: 'load_test_warmup',
+          meter: config.meter ?? 'api_calls',
           quantity: 1,
         });
       } catch {
@@ -38,7 +38,7 @@ export async function runChargeBurst(config: ScenarioConfig): Promise<ScenarioRe
 
         await client.charge({
           customerId: config.customerId,
-          meter: 'load_test_charge',
+          meter: config.meter ?? 'api_calls',
           quantity: 1,
           idempotencyKey,
         });
