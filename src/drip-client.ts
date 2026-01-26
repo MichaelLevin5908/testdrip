@@ -1,6 +1,6 @@
 // Use the real Drip SDK from npm
 import { Drip as RealDrip, DripError as RealDripError } from '@drip-sdk/node';
-import type { ChargeResult, Customer, BalanceResult, Charge, ListChargesResponse, ListCustomersResponse } from '@drip-sdk/node';
+import type { ChargeResult, Customer, BalanceResult, Charge, ListChargesResponse, ListCustomersResponse, TrackUsageParams, TrackUsageResult } from '@drip-sdk/node';
 import { CheckContext } from './types.js';
 
 // Re-export the real SDK classes
@@ -127,6 +127,11 @@ export class Drip {
 
   async getRunTimeline(runId: string) {
     return this.sdk.getRunTimeline(runId);
+  }
+
+  // Track usage without billing (for internal visibility, pilots, pre-billing)
+  async trackUsage(data: TrackUsageParams): Promise<TrackUsageResult> {
+    return this.sdk.trackUsage(data);
   }
 
   // Static methods

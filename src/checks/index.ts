@@ -7,6 +7,7 @@ import { streamMeterAddCheck, streamMeterFlushCheck } from './streaming.js';
 import { idempotencyCheck } from './idempotency.js';
 import { webhookSignCheck, webhookVerifyCheck } from './webhooks.js';
 import { runCreateCheck, runTimelineCheck } from './runs.js';
+import { trackUsageCheck } from './usage.js';
 
 export const allChecks: Check[] = [
   connectivityCheck,
@@ -16,6 +17,7 @@ export const allChecks: Check[] = [
   customerListCheck,
   chargeCreateCheck,
   chargeStatusCheck,
+  trackUsageCheck,
   balanceGetCheck,
   streamMeterAddCheck,
   streamMeterFlushCheck,
