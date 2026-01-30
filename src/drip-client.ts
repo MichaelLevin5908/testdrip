@@ -134,6 +134,19 @@ export class Drip {
     return this.sdk.trackUsage(data);
   }
 
+  // Wrap external API calls with guaranteed usage recording
+  async wrapApiCall<T>(options: {
+    customerId: string;
+    meter: string;
+    call: () => Promise<T>;
+    extractUsage: (result: T) => number;
+    idempotencyKey?: string;
+    metadata?: Record<string, unknown>;
+    retryOptions?: { maxAttempts?: number; baseDelayMs?: number; maxDelayMs?: number };
+  }): Promise<{ result: T; charge: ChargeResult }> {
+    return this.sdk.wrapApiCall(options);
+  }
+
   // Static methods
   static verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
     // Use the sync version since this is called synchronously in health checks

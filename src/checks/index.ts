@@ -8,6 +8,7 @@ import { idempotencyCheck } from './idempotency.js';
 import { webhookSignCheck, webhookVerifyCheck } from './webhooks.js';
 import { runCreateCheck, runTimelineCheck } from './runs.js';
 import { trackUsageCheck } from './usage.js';
+import { wrapApiCallBasicCheck, wrapApiCallIdempotencyCheck, wrapApiCallErrorHandlingCheck } from './wrapApiCall.js';
 
 export const allChecks: Check[] = [
   connectivityCheck,
@@ -22,6 +23,9 @@ export const allChecks: Check[] = [
   streamMeterAddCheck,
   streamMeterFlushCheck,
   idempotencyCheck,
+  wrapApiCallBasicCheck,
+  wrapApiCallIdempotencyCheck,
+  wrapApiCallErrorHandlingCheck,
   webhookSignCheck,
   webhookVerifyCheck,
   runCreateCheck,
