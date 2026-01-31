@@ -57,6 +57,8 @@ webhook_sign_check = Check(
 
 async def _webhook_verify_check(ctx: CheckContext) -> CheckResult:
     """Verify webhook signature validation."""
+    import time
+
     if not ctx.webhook_secret:
         return CheckResult(
             name="webhook_verify",
@@ -70,15 +72,19 @@ async def _webhook_verify_check(ctx: CheckContext) -> CheckResult:
         # Create test payload
         test_payload = '{"event": "test", "data": {}}'
 
-        # Generate signature using HMAC-SHA256 over just the payload (SDK format: sha256=<hash>)
+        # Generate timestamp
+        timestamp = int(time.time())
+
+        # Generate signature using HMAC-SHA256 over {timestamp}.{payload}
+        signature_payload = f"{timestamp}.{test_payload}"
         hex_signature = hmac.new(
             ctx.webhook_secret.encode(),
-            test_payload.encode(),
+            signature_payload.encode(),
             hashlib.sha256
         ).hexdigest()
 
-        # Format signature as SDK expects: sha256=<hexsignature>
-        formatted_signature = f"sha256={hex_signature}"
+        # Format signature as SDK expects: t=timestamp,v1=hexsignature
+        formatted_signature = f"t={timestamp},v1={hex_signature}"
 
         # Try to use SDK's verify function if available
         try:
@@ -92,7 +98,7 @@ async def _webhook_verify_check(ctx: CheckContext) -> CheckResult:
             # Fallback: manually verify using same logic
             expected_sig = hmac.new(
                 ctx.webhook_secret.encode(),
-                test_payload.encode(),
+                signature_payload.encode(),
                 hashlib.sha256
             ).hexdigest()
             is_valid = hmac.compare_digest(hex_signature, expected_sig)
