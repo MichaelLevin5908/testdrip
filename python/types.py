@@ -25,10 +25,12 @@ class CheckContext:
     timeout: int = 30000  # milliseconds
     # Dynamic fields set during checks
     created_charge_id: Optional[str] = None
+    charge_id: Optional[str] = None  # For get_charge check
     stream_meter: Any = None
     webhook_id: Optional[str] = None
     webhook_secret: Optional[str] = None
     run_id: Optional[str] = None
+    workflow_id: Optional[str] = None
 
 
 # Type alias for check functions
