@@ -21,7 +21,7 @@ export const checkoutCreateCheck: Check = {
 
     try {
       // Access the SDK directly to call checkout
-      const sdk = (client as unknown as { sdk: { checkout?: (data: { customerId: string; amount: number; currency: string }) => Promise<{ sessionId: string; url: string }> } }).sdk;
+      const sdk = (client as unknown as { sdk: { checkout?: (data: { customerId?: string; amount: number; returnUrl: string }) => Promise<{ id: string; url: string }> } }).sdk;
 
       if (!sdk.checkout) {
         // Endpoint may not exist - skip gracefully
@@ -37,8 +37,8 @@ export const checkoutCreateCheck: Check = {
 
       const result = await sdk.checkout({
         customerId,
-        amount: 1000,
-        currency: 'usd',
+        amount: 1000, // $10.00 in cents
+        returnUrl: 'https://example.com/checkout/success',
       });
       const duration = performance.now() - start;
 
@@ -46,7 +46,7 @@ export const checkoutCreateCheck: Check = {
         name: 'Checkout Create',
         success: true,
         duration,
-        message: `Session: ${result.sessionId}`,
+        message: `Session: ${result.id}`,
         details: `URL: ${result.url}`,
       };
     } catch (error) {

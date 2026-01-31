@@ -32,7 +32,7 @@ export const webhookCreateCheck: Check = {
 
       const result = await sdk.createWebhook({
         url: 'https://example.com/webhook/health-check',
-        events: ['charge.created', 'charge.completed'],
+        events: ['charge.succeeded', 'charge.failed'],
       });
       const duration = performance.now() - start;
 

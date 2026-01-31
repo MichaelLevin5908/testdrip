@@ -135,8 +135,8 @@ export const runEndCheck: Check = {
     try {
       const sdk = (client as unknown as {
         sdk: {
-          endRun?: (runId: string, data: { status: string; summary?: string }) => Promise<{ success: boolean }>;
-          startRun?: (data: { customerId: string; workflow: string }) => Promise<{ id: string }>;
+          endRun?: (runId: string, data: { status: 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'TIMEOUT' }) => Promise<{ success: boolean }>;
+          startRun?: (data: { customerId: string; workflowId: string }) => Promise<{ id: string }>;
         };
       }).sdk;
 
@@ -151,15 +151,27 @@ export const runEndCheck: Check = {
         };
       }
 
+      // Get workflow ID from context (set by Workflow List check)
+      const workflowId = (ctx as RunContext).workflowId;
+      if (!workflowId) {
+        const duration = performance.now() - start;
+        return {
+          name: 'Run End',
+          success: true,
+          duration,
+          message: 'Skipped (no workflow ID available)',
+          suggestion: 'Run Workflow List check first to get a workflow ID',
+        };
+      }
+
       // First create a run to end
       const startResult = await sdk.startRun({
         customerId,
-        workflow: 'health-check-end-test',
+        workflowId,
       });
 
       await sdk.endRun(startResult.id, {
-        status: 'completed',
-        summary: 'Health check completed successfully',
+        status: 'COMPLETED',
       });
       const duration = performance.now() - start;
 
@@ -168,7 +180,7 @@ export const runEndCheck: Check = {
         success: true,
         duration,
         message: `Run ${startResult.id} ended`,
-        details: 'Status: completed',
+        details: 'Status: COMPLETED',
       };
     } catch (error) {
       const duration = performance.now() - start;
@@ -197,74 +209,81 @@ export const runEndCheck: Check = {
 
 export const emitEventCheck: Check = {
   name: 'Emit Event',
-  description: 'Emit single event to run',
+  description: 'Emit single event via new events API',
   async run(ctx: CheckContext): Promise<CheckResult> {
     const start = performance.now();
-    const runId = (ctx as RunContext).runId;
+    const customerId = ctx.createdCustomerId || ctx.testCustomerId;
 
-    if (!runId) {
+    if (!customerId) {
       return {
         name: 'Emit Event',
-        success: true,
+        success: false,
         duration: 0,
-        message: 'Skipped (no run ID available)',
-        suggestion: 'Run Run Create check first',
+        message: 'No customer ID available',
+        suggestion: 'Run Customer Create check first or set TEST_CUSTOMER_ID',
       };
     }
 
     try {
-      const client = createClient(ctx);
-      const sdk = (client as unknown as {
-        sdk: {
-          emitEvent?: (data: { runId: string; type: string; data: Record<string, unknown> }) => Promise<{ success: boolean }>;
-        };
-      }).sdk;
+      // Call the new events API directly (POST /v1/events)
+      // Required fields: customerId, actionName, idempotencyKey
+      const response = await fetch(`${ctx.apiUrl}/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ctx.apiKey}`,
+        },
+        body: JSON.stringify({
+          customerId,
+          actionName: 'health_check_event',
+          idempotencyKey: `health-check-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          outcome: 'SUCCESS',
+          explanation: 'Health check event emitted successfully',
+          quantity: 1,
+        }),
+      });
 
-      if (!sdk.emitEvent) {
-        const duration = performance.now() - start;
+      const duration = performance.now() - start;
+
+      if (response.ok) {
+        const result = await response.json() as { id: string };
         return {
           name: 'Emit Event',
           success: true,
           duration,
-          message: 'Skipped (emitEvent not available)',
-          details: 'The emitEvent method is not available in the SDK',
+          message: 'Event emitted',
+          details: `Event ID: ${result.id}`,
         };
       }
 
-      await sdk.emitEvent({
-        runId,
-        type: 'tool_call',
-        data: { tool: 'health-check', input: { test: true } },
-      });
-      const duration = performance.now() - start;
-
-      return {
-        name: 'Emit Event',
-        success: true,
-        duration,
-        message: 'Event emitted',
-        details: `Run: ${runId}, Type: tool_call`,
-      };
-    } catch (error) {
-      const duration = performance.now() - start;
-      const err = error as DripError;
-
-      if (err.statusCode === 404 || err.statusCode === 501) {
+      // Handle 404/501 gracefully for endpoints that may not exist
+      if (response.status === 404 || response.status === 501) {
         return {
           name: 'Emit Event',
           success: true,
           duration,
           message: 'Skipped (endpoint not implemented)',
-          details: `Status: ${err.statusCode}`,
+          details: `Status: ${response.status}`,
         };
       }
+
+      const errorData = await response.json().catch(() => ({})) as { error?: string; code?: string };
+      return {
+        name: 'Emit Event',
+        success: false,
+        duration,
+        message: errorData.error || 'Failed to emit event',
+        details: `${errorData.code} (status: ${response.status})`,
+      };
+    } catch (error) {
+      const duration = performance.now() - start;
+      const err = error as Error;
 
       return {
         name: 'Emit Event',
         success: false,
         duration,
         message: err.message || 'Failed to emit event',
-        details: `${err.code} (status: ${err.statusCode})`,
       };
     }
   },
@@ -291,7 +310,7 @@ export const emitEventsBatchCheck: Check = {
       const client = createClient(ctx);
       const sdk = (client as unknown as {
         sdk: {
-          emitEventsBatch?: (events: Array<{ runId: string; type: string; data: Record<string, unknown> }>) => Promise<{ success: boolean; count: number }>;
+          emitEventsBatch?: (events: Array<{ runId: string; eventType: string; description?: string; quantity?: number; units?: string }>) => Promise<{ success: boolean; count: number }>;
         };
       }).sdk;
 
@@ -307,8 +326,8 @@ export const emitEventsBatchCheck: Check = {
       }
 
       const result = await sdk.emitEventsBatch([
-        { runId, type: 'llm_call', data: { model: 'gpt-4', tokens: 100 } },
-        { runId, type: 'llm_call', data: { model: 'gpt-4', tokens: 200 } },
+        { runId, eventType: 'llm_call', description: 'First LLM call', quantity: 100, units: 'tokens' },
+        { runId, eventType: 'llm_call', description: 'Second LLM call', quantity: 200, units: 'tokens' },
       ]);
       const duration = performance.now() - start;
 

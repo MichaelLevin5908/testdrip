@@ -32,10 +32,8 @@ def create_client(api_key: str, base_url: str) -> Any:
             "Install it with: pip install drip-sdk"
         )
 
-    # Remove /v1 suffix if present, SDK may add it
+    # Ensure URL is clean (remove trailing slash only)
     clean_url = base_url.rstrip("/")
-    if clean_url.endswith("/v1"):
-        clean_url = clean_url[:-3]
 
     return DripSDK(api_key=api_key, base_url=clean_url)
 

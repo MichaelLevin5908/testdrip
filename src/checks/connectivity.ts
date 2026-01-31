@@ -60,13 +60,14 @@ export const authenticationCheck: Check = {
     const start = performance.now();
 
     try {
-      const response = await fetch(`${ctx.apiUrl}/auth/verify`, {
+      // Use /customers endpoint with limit=1 to verify API key
+      // The /auth/verify endpoint is for Privy tokens (dashboard), not API keys
+      const response = await fetch(`${ctx.apiUrl}/customers?limit=1`, {
         headers: { 'Authorization': `Bearer ${ctx.apiKey}` },
       });
       const duration = performance.now() - start;
 
-      if (response.ok || response.status === 404) {
-        // 404 means endpoint doesn't exist but auth header was accepted
+      if (response.ok) {
         return {
           name: 'Authentication',
           success: true,
@@ -82,11 +83,13 @@ export const authenticationCheck: Check = {
           suggestion: 'Check your DRIP_API_KEY environment variable',
         };
       } else {
+        // Other errors (500, etc.) - key may still be valid
         return {
           name: 'Authentication',
           success: true,
           duration,
           message: 'API key accepted',
+          details: `Server returned ${response.status}`,
         };
       }
     } catch (error) {

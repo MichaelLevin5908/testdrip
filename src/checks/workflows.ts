@@ -31,6 +31,7 @@ export const workflowCreateCheck: Check = {
 
       const result = await sdk.createWorkflow({
         name: `health-check-workflow-${Date.now()}`,
+        slug: `health_check_workflow_${Date.now()}`,
         description: 'Test workflow created by health check',
       });
       const duration = performance.now() - start;
