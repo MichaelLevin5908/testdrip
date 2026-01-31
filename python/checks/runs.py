@@ -417,12 +417,12 @@ async def _record_run_check(ctx: CheckContext) -> CheckResult:
 
         result = client.record_run(
             customer_id=customer_id,
-            workflow_slug=workflow_slug,
+            workflow=workflow_slug,
             correlation_id=f"health_{uuid.uuid4().hex[:8]}",
             status="COMPLETED",
             events=[
-                {"type": "llm_call", "data": {"model": "gpt-4", "tokens": 100}},
-                {"type": "tool_call", "data": {"tool": "search"}}
+                {"eventType": "llm_call", "quantity": 100, "units": "tokens"},
+                {"eventType": "tool_call", "quantity": 1, "units": "calls"}
             ]
         )
 

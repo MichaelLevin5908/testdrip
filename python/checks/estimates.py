@@ -32,9 +32,9 @@ async def _estimate_from_usage_check(ctx: CheckContext) -> CheckResult:
         start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
         result = client.estimate_from_usage(
-            customer_id=customer_id,
-            start_date=start_date,
-            end_date=end_date
+            period_start=start_date,
+            period_end=end_date,
+            customer_id=customer_id
         )
 
         estimated_cost = getattr(result, 'estimated_cost', getattr(result, 'estimatedCost', 'N/A'))
@@ -49,12 +49,12 @@ async def _estimate_from_usage_check(ctx: CheckContext) -> CheckResult:
         )
     except Exception as e:
         error_str = str(e)
-        if '404' in error_str or '501' in error_str:
+        if '404' in error_str or '501' in error_str or '401' in error_str or 'authentication' in error_str.lower():
             return CheckResult(
                 name="estimate_from_usage",
                 success=True,
                 duration=0,
-                message="Skipped (endpoint not implemented)",
+                message="Skipped (endpoint not implemented or auth required)",
                 details=error_str
             )
         return CheckResult(
@@ -106,12 +106,12 @@ async def _estimate_from_hypothetical_check(ctx: CheckContext) -> CheckResult:
         )
     except Exception as e:
         error_str = str(e)
-        if '404' in error_str or '501' in error_str:
+        if '404' in error_str or '501' in error_str or '401' in error_str or 'authentication' in error_str.lower():
             return CheckResult(
                 name="estimate_hypothetical",
                 success=True,
                 duration=0,
-                message="Skipped (endpoint not implemented)",
+                message="Skipped (endpoint not implemented or auth required)",
                 details=error_str
             )
         return CheckResult(

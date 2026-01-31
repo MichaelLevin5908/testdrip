@@ -6,27 +6,18 @@ from ..drip_client import create_client, generate_idempotency_key
 async def _generate_idempotency_key_check(ctx: CheckContext) -> CheckResult:
     """Test idempotency key generation."""
     try:
-        # Test our local implementation
-        key1 = generate_idempotency_key("test", "cust_123", 1)
-        key2 = generate_idempotency_key("test", "cust_123", 1)
-        key3 = generate_idempotency_key("test", "cust_123", 2)
+        # Test our local implementation (generates unique keys each time)
+        key1 = generate_idempotency_key("test")
+        key2 = generate_idempotency_key("test")
 
-        if key1 != key2:
+        # Local implementation generates unique keys (not deterministic)
+        if key1 == key2:
             return CheckResult(
                 name="idempotency_key_gen",
                 success=False,
                 duration=0,
-                message="Keys not deterministic",
-                details="Same inputs should produce same key"
-            )
-
-        if key1 == key3:
-            return CheckResult(
-                name="idempotency_key_gen",
-                success=False,
-                duration=0,
-                message="Keys not unique",
-                details="Different sequence should produce different key"
+                message="Keys should be unique",
+                details="Each call should produce a unique key"
             )
 
         # Also test SDK static method if available
@@ -34,13 +25,35 @@ async def _generate_idempotency_key_check(ctx: CheckContext) -> CheckResult:
         sdk_method = getattr(client, 'generate_idempotency_key', None) or getattr(type(client), 'generate_idempotency_key', None)
 
         if sdk_method:
-            sdk_key = sdk_method(customer_id="cust_123", meter="tokens", sequence=1)
+            # SDK method is deterministic based on inputs
+            sdk_key1 = sdk_method(customer_id="cust_123", step_name="test_step", sequence=1)
+            sdk_key2 = sdk_method(customer_id="cust_123", step_name="test_step", sequence=1)
+            sdk_key3 = sdk_method(customer_id="cust_123", step_name="test_step", sequence=2)
+
+            if sdk_key1 != sdk_key2:
+                return CheckResult(
+                    name="idempotency_key_gen",
+                    success=False,
+                    duration=0,
+                    message="SDK keys not deterministic",
+                    details="Same inputs should produce same key"
+                )
+
+            if sdk_key1 == sdk_key3:
+                return CheckResult(
+                    name="idempotency_key_gen",
+                    success=False,
+                    duration=0,
+                    message="SDK keys not unique",
+                    details="Different sequence should produce different key"
+                )
+
             return CheckResult(
                 name="idempotency_key_gen",
                 success=True,
                 duration=0,
                 message="Keys generated correctly",
-                details=f"SDK key: {sdk_key[:20]}..."
+                details=f"SDK key: {sdk_key1[:20]}..."
             )
 
         return CheckResult(
