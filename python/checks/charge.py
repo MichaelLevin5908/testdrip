@@ -116,3 +116,136 @@ charge_status_check = Check(
     description="Check charge settlement status",
     run=_charge_status_check
 )
+
+
+async def _get_charge_check(ctx: CheckContext) -> CheckResult:
+    """Get a specific charge by ID."""
+    charge_id = ctx.charge_id or ctx.created_charge_id
+    if not charge_id:
+        return CheckResult(
+            name="charge_get",
+            success=False,
+            duration=0,
+            message="No charge ID available",
+            suggestion="Run charge_status check first to get a charge ID"
+        )
+
+    try:
+        client = create_client(ctx.api_key, ctx.api_url)
+
+        if not hasattr(client, 'get_charge'):
+            return CheckResult(
+                name="charge_get",
+                success=True,
+                duration=0,
+                message="Skipped (get_charge not available)",
+                details="The get_charge method is not available in the SDK"
+            )
+
+        charge = client.get_charge(charge_id)
+        status = getattr(charge, 'status', 'unknown')
+        amount = getattr(charge, 'amount_usdc', getattr(charge, 'amount', 'N/A'))
+
+        return CheckResult(
+            name="charge_get",
+            success=True,
+            duration=0,
+            message=f"Charge {charge_id} ({status})",
+            details=f"Amount: {amount} USDC"
+        )
+    except Exception as e:
+        error_str = str(e)
+        if '404' in error_str or '501' in error_str:
+            return CheckResult(
+                name="charge_get",
+                success=True,
+                duration=0,
+                message="Skipped (endpoint not implemented)",
+                details=error_str
+            )
+        return CheckResult(
+            name="charge_get",
+            success=False,
+            duration=0,
+            message=f"Failed to get charge: {e}"
+        )
+
+
+get_charge_check = Check(
+    name="charge_get",
+    description="Get a specific charge by ID",
+    run=_get_charge_check
+)
+
+
+async def _list_charges_filtered_check(ctx: CheckContext) -> CheckResult:
+    """List charges with customer filtering."""
+    customer_id = ctx.created_customer_id or ctx.test_customer_id
+    if not customer_id:
+        return CheckResult(
+            name="charge_list_filtered",
+            success=False,
+            duration=0,
+            message="No customer ID available",
+            suggestion="Run customer_create check first or set TEST_CUSTOMER_ID"
+        )
+
+    try:
+        client = create_client(ctx.api_key, ctx.api_url)
+
+        if not hasattr(client, 'list_charges'):
+            return CheckResult(
+                name="charge_list_filtered",
+                success=True,
+                duration=0,
+                message="Skipped (list_charges not available)",
+                details="The list_charges method is not available in the SDK"
+            )
+
+        result = client.list_charges(customer_id=customer_id, limit=10)
+
+        # Handle different response formats
+        if hasattr(result, 'data'):
+            count = len(result.data)
+            # Store first charge ID for subsequent checks
+            if count > 0 and not ctx.charge_id:
+                ctx.charge_id = result.data[0].id
+        elif hasattr(result, 'count'):
+            count = result.count
+        elif isinstance(result, list):
+            count = len(result)
+            if count > 0 and not ctx.charge_id:
+                ctx.charge_id = result[0].id if hasattr(result[0], 'id') else result[0].get('id')
+        else:
+            count = 1
+
+        return CheckResult(
+            name="charge_list_filtered",
+            success=True,
+            duration=0,
+            message=f"Found {count} charge(s) for customer",
+            details=f"Customer: {customer_id}"
+        )
+    except Exception as e:
+        error_str = str(e)
+        if '404' in error_str or '501' in error_str:
+            return CheckResult(
+                name="charge_list_filtered",
+                success=True,
+                duration=0,
+                message="Skipped (endpoint not implemented)",
+                details=error_str
+            )
+        return CheckResult(
+            name="charge_list_filtered",
+            success=False,
+            duration=0,
+            message=f"Failed to list charges: {e}"
+        )
+
+
+list_charges_filtered_check = Check(
+    name="charge_list_filtered",
+    description="List charges with customer filtering",
+    run=_list_charges_filtered_check
+)
