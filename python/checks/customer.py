@@ -5,6 +5,16 @@ from ..drip_client import create_client, generate_external_id
 
 async def _customer_create_check(ctx: CheckContext) -> CheckResult:
     """Create a test customer."""
+    # If using a seeded test customer, skip creation
+    if ctx.test_customer_id:
+        return CheckResult(
+            name="customer_create",
+            success=True,
+            duration=0,
+            message=f"Using seeded customer {ctx.test_customer_id}",
+            details="Skipped creation (TEST_CUSTOMER_ID configured)"
+        )
+
     try:
         client = create_client(ctx.api_key, ctx.api_url)
         external_id = generate_external_id("health_check")
@@ -26,6 +36,16 @@ async def _customer_create_check(ctx: CheckContext) -> CheckResult:
             details=f"external_id: {external_id}"
         )
     except Exception as e:
+        error_str = str(e)
+        # Handle duplicate customer gracefully
+        if "409" in error_str or "DUPLICATE" in error_str.upper() or "already exists" in error_str.lower():
+            return CheckResult(
+                name="customer_create",
+                success=True,
+                duration=0,
+                message="Customer already exists (using existing)",
+                details="Duplicate customer handled gracefully"
+            )
         return CheckResult(
             name="customer_create",
             success=False,

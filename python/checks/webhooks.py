@@ -67,32 +67,39 @@ async def _webhook_verify_check(ctx: CheckContext) -> CheckResult:
         )
 
     try:
-        # Create test payload and signature
-        test_payload = b'{"event": "test", "data": {}}'
+        import time
 
-        # Generate valid signature
-        signature = hmac.new(
+        # Create test payload and signature in SDK expected format: t=timestamp,v1=signature
+        test_payload = '{"event": "test", "data": {}}'
+        timestamp = str(int(time.time()))
+
+        # Generate signature over "timestamp.payload" as SDK expects
+        signed_content = f"{timestamp}.{test_payload}"
+        hex_signature = hmac.new(
             ctx.webhook_secret.encode(),
-            test_payload,
+            signed_content.encode(),
             hashlib.sha256
         ).hexdigest()
+
+        # Format signature as SDK expects: t=timestamp,v1=hexsignature
+        formatted_signature = f"t={timestamp},v1={hex_signature}"
 
         # Try to use SDK's verify function if available
         try:
             from drip import verify_webhook_signature
             is_valid = verify_webhook_signature(
                 payload=test_payload,
-                signature=signature,
+                signature=formatted_signature,
                 secret=ctx.webhook_secret
             )
         except ImportError:
-            # Fallback: manually verify
+            # Fallback: manually verify using same logic
             expected_sig = hmac.new(
                 ctx.webhook_secret.encode(),
-                test_payload,
+                signed_content.encode(),
                 hashlib.sha256
             ).hexdigest()
-            is_valid = hmac.compare_digest(signature, expected_sig)
+            is_valid = hmac.compare_digest(hex_signature, expected_sig)
 
         if is_valid:
             return CheckResult(

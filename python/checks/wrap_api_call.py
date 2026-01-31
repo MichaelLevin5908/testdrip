@@ -122,9 +122,11 @@ async def _wrap_api_call_idempotency_check(ctx: CheckContext) -> CheckResult:
             idempotency_key=idempotency_key
         )
 
-        is_replay = getattr(result2, 'is_replay', False)
+        # Check if second call detected as duplicate
+        charge_result2 = getattr(result2, 'charge', None)
+        is_duplicate = getattr(charge_result2, 'is_duplicate', False) if charge_result2 else False
 
-        if is_replay:
+        if is_duplicate:
             return CheckResult(
                 name="wrap_api_call_idempotency",
                 success=True,
@@ -133,9 +135,12 @@ async def _wrap_api_call_idempotency_check(ctx: CheckContext) -> CheckResult:
             )
         else:
             # Check if charge IDs match instead
-            charge1 = getattr(result1, 'charge', None)
-            charge2 = getattr(result2, 'charge', None)
-            if charge1 and charge2 and charge1.id == charge2.id:
+            # WrapApiCallResult.charge is ChargeResult, ChargeResult.charge is ChargeInfo with id
+            charge_result1 = getattr(result1, 'charge', None)
+            charge_result2 = getattr(result2, 'charge', None)
+            charge_info1 = getattr(charge_result1, 'charge', None) if charge_result1 else None
+            charge_info2 = getattr(charge_result2, 'charge', None) if charge_result2 else None
+            if charge_info1 and charge_info2 and charge_info1.id == charge_info2.id:
                 return CheckResult(
                     name="wrap_api_call_idempotency",
                     success=True,
