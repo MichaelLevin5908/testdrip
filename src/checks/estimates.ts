@@ -68,6 +68,17 @@ export const estimateFromUsageCheck: Check = {
         };
       }
 
+      // 401 means this endpoint requires dashboard auth, not API key auth
+      if (err.statusCode === 401) {
+        return {
+          name: 'Estimate From Usage',
+          success: true,
+          duration,
+          message: 'Skipped (requires dashboard auth)',
+          details: 'This endpoint requires dashboard authentication',
+        };
+      }
+
       return {
         name: 'Estimate From Usage',
         success: false,
@@ -130,6 +141,17 @@ export const estimateFromHypotheticalCheck: Check = {
           duration,
           message: 'Skipped (endpoint not implemented)',
           details: `Status: ${err.statusCode}`,
+        };
+      }
+
+      // 401 means this endpoint requires dashboard auth, not API key auth
+      if (err.statusCode === 401) {
+        return {
+          name: 'Estimate Hypothetical',
+          success: true,
+          duration,
+          message: 'Skipped (requires dashboard auth)',
+          details: 'This endpoint requires dashboard authentication',
         };
       }
 

@@ -12,10 +12,10 @@ export const getMetricsCheck: Check = {
     try {
       const sdk = (client as unknown as {
         sdk: {
-          getMetrics?: () => Promise<{
+          getMetrics?: () => {
             requests: { total: number; successful: number; failed: number };
             latency: { average: number; p95: number; p99: number };
-          }>;
+          } | null;
         };
       }).sdk;
 
@@ -30,7 +30,19 @@ export const getMetricsCheck: Check = {
         };
       }
 
-      const result = await sdk.getMetrics();
+      const result = sdk.getMetrics();
+
+      // getMetrics returns null when resilience is not enabled
+      if (result === null) {
+        const duration = performance.now() - start;
+        return {
+          name: 'SDK Metrics',
+          success: true,
+          duration,
+          message: 'Skipped (resilience not enabled)',
+          details: 'Enable resilience in SDK config to access metrics',
+        };
+      }
       const duration = performance.now() - start;
 
       return {
@@ -76,11 +88,11 @@ export const getHealthCheck: Check = {
     try {
       const sdk = (client as unknown as {
         sdk: {
-          getHealth?: () => Promise<{
+          getHealth?: () => {
             status: 'healthy' | 'degraded' | 'unhealthy';
             circuitBreaker: { state: string; failures: number };
             rateLimit: { remaining: number; resetAt: string };
-          }>;
+          } | null;
         };
       }).sdk;
 
@@ -95,7 +107,19 @@ export const getHealthCheck: Check = {
         };
       }
 
-      const result = await sdk.getHealth();
+      const result = sdk.getHealth();
+
+      // getHealth returns null when resilience is not enabled
+      if (result === null) {
+        const duration = performance.now() - start;
+        return {
+          name: 'Resilience Health',
+          success: true,
+          duration,
+          message: 'Skipped (resilience not enabled)',
+          details: 'Enable resilience in SDK config to access health status',
+        };
+      }
       const duration = performance.now() - start;
 
       return {
