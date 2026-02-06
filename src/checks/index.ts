@@ -8,7 +8,7 @@ import { idempotencyCheck } from './idempotency.js';
 import { webhookSignCheck, webhookVerifyCheck } from './webhooks.js';
 import { webhookCreateCheck, webhookListCheck, webhookGetCheck, webhookTestCheck, webhookRotateSecretCheck, webhookDeleteCheck } from './webhooks-crud.js';
 import { runCreateCheck, runTimelineCheck, runEndCheck, emitEventCheck, emitEventsBatchCheck, recordRunCheck } from './runs.js';
-import { trackUsageCheck } from './usage.js';
+import { trackUsageCheck, trackUsageIdempotencyCheck } from './usage.js';
 import { wrapApiCallBasicCheck, wrapApiCallIdempotencyCheck, wrapApiCallErrorHandlingCheck } from './wrapApiCall.js';
 import { checkoutCreateCheck } from './checkout.js';
 import { workflowCreateCheck, workflowListCheck } from './workflows.js';
@@ -35,6 +35,7 @@ export const allChecks: Check[] = [
 
   // Usage tracking
   trackUsageCheck,
+  trackUsageIdempotencyCheck,
   balanceGetCheck,
 
   // Streaming

@@ -14,7 +14,7 @@ export const workflowCreateCheck: Check = {
     try {
       const sdk = (client as unknown as {
         sdk: {
-          createWorkflow?: (data: { name: string; description?: string }) => Promise<{ id: string; name: string }>;
+          createWorkflow?: (data: { name: string; slug: string; description?: string }) => Promise<{ id: string; name: string }>;
         };
       }).sdk;
 

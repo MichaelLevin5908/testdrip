@@ -33,7 +33,7 @@ from .runs import (
     record_run_check
 )
 from .workflows import workflow_create_check, workflow_list_check
-from .usage import track_usage_check
+from .usage import track_usage_check, track_usage_idempotency_check
 from .wrap_api_call import (
     wrap_api_call_basic_check,
     wrap_api_call_idempotency_check,
@@ -62,8 +62,9 @@ all_checks = [
     get_charge_check,
     list_charges_filtered_check,
 
-    # Usage tracking (2)
+    # Usage tracking (3)
     track_usage_check,
+    track_usage_idempotency_check,
     balance_get_check,
 
     # Streaming (2)

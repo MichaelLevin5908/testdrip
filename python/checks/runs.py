@@ -352,11 +352,11 @@ async def _emit_events_batch_check(ctx: CheckContext) -> CheckResult:
         emit_method = getattr(client, 'emit_events_batch', None) or getattr(client, 'emit_events', None)
 
         result = emit_method([
-            {"run_id": ctx.run_id, "type": "tool_call", "data": {"tool": "search"}},
-            {"run_id": ctx.run_id, "type": "tool_call", "data": {"tool": "calc"}}
+            {"runId": ctx.run_id, "eventType": "tool_call", "quantity": 1, "units": "calls", "description": "Search tool call"},
+            {"runId": ctx.run_id, "eventType": "tool_call", "quantity": 1, "units": "calls", "description": "Calc tool call"}
         ])
 
-        count = getattr(result, 'count', 2)
+        count = getattr(result, 'created', getattr(result, 'count', 2))
 
         return CheckResult(
             name="emit_events_batch",
