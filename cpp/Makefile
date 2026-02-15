@@ -23,7 +23,7 @@ CXX       ?= g++
 CXXFLAGS  ?= -std=c++11 -Wall -Wextra -O2
 
 # SDK location (relative to this Makefile)
-SDK_DIR    = ../../drip/sdk-cpp
+SDK_DIR    = ../cpp-sdk
 BUILD_DIR  = build
 
 # Targets

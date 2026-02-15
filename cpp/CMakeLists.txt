@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Path to the SDK in the monorepo
-set(DRIP_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../drip/sdk-cpp"
+set(DRIP_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cpp-sdk"
     CACHE PATH "Path to drip-sdk-cpp source directory")
 
 # Add the SDK as a subdirectory
