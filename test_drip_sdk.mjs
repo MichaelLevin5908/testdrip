@@ -498,7 +498,7 @@ try {
   const meters = await drip.listMeters();
   console.log(`   PASS - Found ${meters.data.length} meters`);
   for (const m of meters.data.slice(0, 3)) {
-    console.log(`      - ${m.name} (${m.usageType})`);
+    console.log(`      - ${m.name} (${m.meter})`);
   }
 } catch (e) {
   console.log(`   FAIL - listMeters failed: ${e.message}`);
@@ -516,7 +516,7 @@ try {
       { usageType: 'tokens_input', quantity: 50000 },
     ],
   });
-  console.log(`   PASS - Estimate: $${estimate.totalEstimatedUsdc} USDC`);
+  console.log(`   PASS - Estimate: $${estimate.estimatedTotalUsdc} USDC`);
   console.log(`      Line items: ${estimate.lineItems.length}`);
 } catch (e) {
   console.log(`   NOTE - Estimation failed (expected if no pricing): ${e.message}`);
