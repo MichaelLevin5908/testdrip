@@ -1,13 +1,25 @@
 """Test Drip SDK usage tracking."""
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from drip import Drip
 
+API_KEY = os.getenv('DRIP_API_KEY')
+if not API_KEY:
+    print("Error: DRIP_API_KEY environment variable not set")
+    exit(1)
+
+DRIP_API_URL = os.getenv('DRIP_API_URL', 'https://drip-app-hlunj.ondigitalocean.app')
+BASE_URL = f"{DRIP_API_URL}/v1" if not DRIP_API_URL.endswith('/v1') else DRIP_API_URL
+
 client = Drip(
-    api_key="pk_live_208e2caf-be47-423a-934b-6260c8fc31c0",
-    base_url="http://localhost:3001/v1",
+    api_key=API_KEY,
+    base_url=BASE_URL,
 )
 
-CUSTOMER_ID = "seed-customer-1"
+CUSTOMER_ID = os.getenv('TEST_CUSTOMER_ID')
 
 # 1. Ping the API
 print("=== Ping ===")
@@ -16,6 +28,23 @@ try:
     print(f"  OK: latency={health['latency_ms']}ms, status={health['status']}")
 except Exception as e:
     print(f"  FAIL: {e}")
+
+# 1b. Create a customer if none provided
+if not CUSTOMER_ID:
+    import secrets
+    print("\n=== Create Customer ===")
+    try:
+        random_address = "0x" + secrets.token_hex(20)
+        customer = client.create_customer(
+            onchain_address=random_address,
+            external_customer_id=f"usage_test_{secrets.token_hex(4)}",
+            metadata={"test": "usage_tracking"},
+        )
+        CUSTOMER_ID = customer.id
+        print(f"  OK: created {CUSTOMER_ID}")
+    except Exception as e:
+        print(f"  FAIL: {e}")
+        exit(1)
 
 # 2. Track usage (no billing) - 1500 tokens — no idempotency_key needed, SDK auto-generates
 print("\n=== Track Usage: 1500 tokens ===")

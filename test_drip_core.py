@@ -15,13 +15,15 @@ NOT available (Full SDK only):
 
 Setup:
     pip install drip-sdk
-    export DRIP_API_KEY="pk_live_..."
-    python test_drip_core.py
+    python test_drip_core.py          # reads DRIP_API_KEY from .env
 """
 
 import os
 import secrets
 import time
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from drip.core import Drip
 
@@ -37,9 +39,12 @@ if not API_KEY:
     print('export DRIP_API_KEY="pk_live_..."')
     exit(1)
 
+DRIP_API_URL = os.getenv('DRIP_API_URL', 'https://drip-app-hlunj.ondigitalocean.app')
+BASE_URL = f"{DRIP_API_URL}/v1" if not DRIP_API_URL.endswith('/v1') else DRIP_API_URL
+
 core = Drip(
     api_key=API_KEY,
-    base_url="https://drip-app-hlunj.ondigitalocean.app/v1",
+    base_url=BASE_URL,
 )
 
 print("Testing Drip Python SDK - CORE MODE")

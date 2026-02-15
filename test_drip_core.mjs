@@ -15,10 +15,10 @@
  *
  * Setup:
  *   npm install @drip-sdk/node
- *   export DRIP_API_KEY="pk_live_..."
- *   node test_drip_core.mjs
+ *   node test_drip_core.mjs          # reads DRIP_API_KEY from .env
  */
 
+import 'dotenv/config';
 import { Drip } from '@drip-sdk/node/core';
 import crypto from 'crypto';
 
@@ -35,9 +35,13 @@ if (!API_KEY) {
   process.exit(1);
 }
 
+const BASE_URL = process.env.DRIP_API_URL
+  ? `${process.env.DRIP_API_URL}/v1`
+  : 'https://drip-app-hlunj.ondigitalocean.app/v1';
+
 const drip = new Drip({
   apiKey: API_KEY,
-  baseUrl: 'https://drip-app-hlunj.ondigitalocean.app/v1',
+  baseUrl: BASE_URL,
 });
 
 const randomHex = (bytes) => crypto.randomBytes(bytes).toString('hex');

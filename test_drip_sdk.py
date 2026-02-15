@@ -53,6 +53,10 @@ What this tests:
 
 import os
 import secrets
+
+from dotenv import load_dotenv
+load_dotenv()
+
 from drip import Drip
 
 # ============================================================================
