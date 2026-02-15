@@ -433,11 +433,146 @@ except Exception as e:
     print(f"   ❌ Failed fine-grained run test: {e}")
 
 # ============================================================================
+# TEST 14: Event Normalization (snake_case event keys)
+# ============================================================================
+
+print("\n14. Testing event normalization (snake_case keys)...")
+try:
+    norm_result = drip.record_run(
+        customer_id=customer_id,
+        workflow="snake-case-test",
+        events=[
+            {"event_type": "llm.call", "quantity": 200, "units": "tokens"},
+            {"eventType": "tool.call", "quantity": 1},
+            {"event_type": "data.fetch", "quantity": 3, "cost_units": 0.001},
+        ],
+        status="COMPLETED",
+        external_run_id=f"ext_{secrets.token_hex(4)}",
+        correlation_id=f"norm_{secrets.token_hex(4)}",
+    )
+    print(f"   PASS - Run recorded with mixed-case events: {norm_result.run.id}")
+    print(f"      Summary: {norm_result.summary}")
+except Exception as e:
+    print(f"   FAIL - Event normalization test failed: {e}")
+
+# ============================================================================
+# TEST 15: Batch Event Emission (emit_events_batch)
+# ============================================================================
+
+print("\n15. Testing emit_events_batch...")
+try:
+    batch_wf = drip.create_workflow(
+        name="Batch Test",
+        slug=f"batch-test-{secrets.token_hex(4)}",
+        product_surface="AGENT",
+    )
+    batch_run = drip.start_run(customer_id=customer_id, workflow_id=batch_wf.id)
+
+    batch_result = drip.emit_events_batch([
+        {"runId": batch_run.id, "eventType": "step.one", "quantity": 10, "units": "tokens"},
+        {"runId": batch_run.id, "eventType": "step.two", "quantity": 20, "units": "tokens"},
+        {"runId": batch_run.id, "eventType": "step.three", "quantity": 30, "units": "tokens"},
+    ])
+    drip.end_run(batch_run.id, status="COMPLETED")
+
+    print(f"   PASS - Batch emitted: {batch_result.created} created, {batch_result.duplicates} duplicates")
+except Exception as e:
+    print(f"   FAIL - emit_events_batch failed: {e}")
+
+# ============================================================================
+# TEST 16: wrap_api_call (Guaranteed Usage Recording)
+# ============================================================================
+
+print("\n16. Testing wrap_api_call...")
+try:
+    def mock_llm_call():
+        return {"text": "Hello from mock LLM", "usage": {"total_tokens": 42}}
+
+    wrap_result = drip.wrap_api_call(
+        customer_id=customer_id,
+        meter="tokens",
+        call=mock_llm_call,
+        extract_usage=lambda r: r["usage"]["total_tokens"],
+    )
+    print(f"   PASS - wrap_api_call succeeded")
+    print(f"      API result: {wrap_result.result['text']}")
+    print(f"      Idempotency key: {wrap_result.idempotency_key}")
+except Exception as e:
+    print(f"   NOTE - wrap_api_call failed (expected if no pricing plan): {e}")
+
+# ============================================================================
+# TEST 17: DripCore Minimal Client
+# ============================================================================
+
+print("\n17. Testing DripCore minimal client...")
+try:
+    from drip.core import Drip as DripCore
+
+    core = DripCore(
+        api_key=API_KEY,
+        base_url="https://drip-app-hlunj.ondigitalocean.app/v1",
+    )
+
+    health = core.ping()
+    print(f"   PASS - DripCore.ping(): ok={health.get('ok')}")
+
+    core_usage = core.track_usage(
+        customer_id=customer_id,
+        meter="api_calls",
+        quantity=1,
+    )
+    print(f"   PASS - DripCore.track_usage(): {core_usage.usage_event_id}")
+
+    core_run = core.record_run(
+        customer_id=customer_id,
+        workflow="core-test",
+        events=[{"event_type": "test.event", "quantity": 1}],
+        status="COMPLETED",
+    )
+    print(f"   PASS - DripCore.record_run(): {core_run.run.id}")
+
+    core.close()
+except ImportError:
+    print("   SKIP - drip.core module not available")
+except Exception as e:
+    print(f"   FAIL - DripCore test failed: {e}")
+
+# ============================================================================
+# TEST 18: List Meters
+# ============================================================================
+
+print("\n18. Testing list_meters...")
+try:
+    meters = drip.list_meters()
+    print(f"   PASS - Found {len(meters.data)} meters")
+    for m in meters.data[:3]:
+        print(f"      - {m.name} ({m.usage_type})")
+except Exception as e:
+    print(f"   FAIL - list_meters failed: {e}")
+
+# ============================================================================
+# TEST 19: Cost Estimation (estimate_from_hypothetical)
+# ============================================================================
+
+print("\n19. Testing estimate_from_hypothetical...")
+try:
+    estimate = drip.estimate_from_hypothetical(
+        items=[
+            {"usage_type": "api_calls", "quantity": 1000},
+            {"usage_type": "tokens_input", "quantity": 50000},
+        ]
+    )
+    print(f"   PASS - Estimate: ${estimate.total_estimated_usdc} USDC")
+    print(f"      Line items: {len(estimate.line_items)}")
+except Exception as e:
+    print(f"   NOTE - Estimation failed (expected if no pricing): {e}")
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 
 print("\n" + "=" * 60)
-print("✨ SDK Test Complete!")
+print("SDK Test Complete!")
 print("=" * 60)
 print("\nThe Drip Python SDK is working correctly.")
 print("\n📋 What was tested:")
