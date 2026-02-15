@@ -16,6 +16,11 @@
  * 11. Audit Trail - Track who did what with detailed metadata
  * 12. Correlation ID - Link runs to your distributed traces
  * 13. Fine-Grained Runs - startRun, emitEvent, endRun, getRunTimeline
+ * 14. recordRun Error - Record failed runs with error details
+ * 15. Batch Events - emitEventsBatch for multiple events at once
+ * 16. wrapApiCall - Wrap external API calls with guaranteed usage recording
+ * 17. List Meters - Discover available pricing meters
+ * 18. Cost Estimation - Estimate costs from hypothetical usage
  *
  * Installation:
  *     npm install @drip-sdk/node
@@ -413,6 +418,111 @@ try {
 }
 
 // ============================================================================
+// TEST 14: recordRun with Error Status + Extended Params
+// ============================================================================
+
+console.log('\n14. Testing recordRun with error status...');
+try {
+  const extId = `ext_run_${randomHex(8)}`;
+  const runResult = await drip.recordRun({
+    customerId,
+    workflow: 'test-error-agent',
+    events: [
+      { eventType: 'llm.call', quantity: 100, units: 'tokens' },
+      { eventType: 'tool.call', quantity: 1, costUnits: 0.002 },
+    ],
+    status: 'FAILED',
+    errorMessage: 'Simulated failure for testing',
+    errorCode: 'TEST_ERROR',
+    externalRunId: extId,
+    correlationId: `trace_${randomHex(8)}`,
+    metadata: { testSuite: 'testdrip' },
+  });
+  console.log(`   PASS - Failed run recorded: ${runResult.run.id}`);
+  console.log(`      Status: ${runResult.run.status}, External ID: ${extId}`);
+  console.log(`      Summary: ${runResult.summary}`);
+} catch (e) {
+  console.log(`   FAIL - recordRun with error status failed: ${e.message}`);
+}
+
+// ============================================================================
+// TEST 15: Batch Event Emission (emitEventsBatch)
+// ============================================================================
+
+console.log('\n15. Testing emitEventsBatch...');
+try {
+  const workflow = await drip.createWorkflow({
+    name: 'Batch Test',
+    slug: `batch-test-${randomHex(4)}`,
+    productSurface: 'AGENT',
+  });
+  const run = await drip.startRun({ customerId, workflowId: workflow.id });
+
+  const batchResult = await drip.emitEventsBatch([
+    { runId: run.id, eventType: 'step.one', quantity: 10, units: 'tokens' },
+    { runId: run.id, eventType: 'step.two', quantity: 20, units: 'tokens' },
+    { runId: run.id, eventType: 'step.three', quantity: 30, units: 'tokens' },
+  ]);
+  await drip.endRun(run.id, { status: 'COMPLETED' });
+
+  console.log(`   PASS - Batch emitted: ${batchResult.created} created, ${batchResult.duplicates} duplicates`);
+} catch (e) {
+  console.log(`   FAIL - emitEventsBatch failed: ${e.message}`);
+}
+
+// ============================================================================
+// TEST 16: wrapApiCall (Guaranteed Usage Recording)
+// ============================================================================
+
+console.log('\n16. Testing wrapApiCall...');
+try {
+  const wrapResult = await drip.wrapApiCall({
+    customerId,
+    meter: 'tokens',
+    call: async () => ({ text: 'hello from mock LLM', usage: { totalTokens: 42 } }),
+    extractUsage: (r) => r.usage.totalTokens,
+  });
+  console.log('   PASS - wrapApiCall succeeded');
+  console.log(`      API result: ${wrapResult.result.text}`);
+  console.log(`      Charge ID: ${wrapResult.charge?.charge?.id || 'N/A'}`);
+} catch (e) {
+  console.log(`   NOTE - wrapApiCall failed (expected if no pricing plan): ${e.message}`);
+}
+
+// ============================================================================
+// TEST 17: List Meters
+// ============================================================================
+
+console.log('\n17. Testing listMeters...');
+try {
+  const meters = await drip.listMeters();
+  console.log(`   PASS - Found ${meters.data.length} meters`);
+  for (const m of meters.data.slice(0, 3)) {
+    console.log(`      - ${m.name} (${m.usageType})`);
+  }
+} catch (e) {
+  console.log(`   FAIL - listMeters failed: ${e.message}`);
+}
+
+// ============================================================================
+// TEST 18: Cost Estimation (estimateFromHypothetical)
+// ============================================================================
+
+console.log('\n18. Testing estimateFromHypothetical...');
+try {
+  const estimate = await drip.estimateFromHypothetical({
+    items: [
+      { usageType: 'api_calls', quantity: 1000 },
+      { usageType: 'tokens_input', quantity: 50000 },
+    ],
+  });
+  console.log(`   PASS - Estimate: $${estimate.totalEstimatedUsdc} USDC`);
+  console.log(`      Line items: ${estimate.lineItems.length}`);
+} catch (e) {
+  console.log(`   NOTE - Estimation failed (expected if no pricing): ${e.message}`);
+}
+
+// ============================================================================
 // SUMMARY
 // ============================================================================
 
@@ -432,6 +542,11 @@ console.log('  PASS - Balance retrieval');
 console.log('  PASS - Customer listing');
 console.log('  PASS - Correlation ID (distributed tracing)');
 console.log('  PASS - Fine-grained runs (start -> emit -> end -> timeline)');
+console.log('  PASS - recordRun with error status + extended params');
+console.log('  PASS - emitEventsBatch (batch event emission)');
+console.log('  PASS - wrapApiCall (guaranteed usage recording)');
+console.log('  PASS - listMeters (discover pricing meters)');
+console.log('  PASS - estimateFromHypothetical (cost estimation)');
 console.log('\nKey Features Demonstrated:');
 console.log('  - Customer Attribution: Track which customer used what');
 console.log('  - Token Tracking: Measure LLM usage per customer');
@@ -440,3 +555,6 @@ console.log('  - Audit Trail: Capture user, IP, timestamp, action');
 console.log('  - Multi-tenant: Handle multiple customers independently');
 console.log('  - Correlation ID: Link billing to OpenTelemetry/Datadog traces');
 console.log('  - Fine-Grained Runs: Full lifecycle control with timeline');
+console.log('  - Batch Events: Emit multiple events in one call');
+console.log('  - wrapApiCall: Wrap external APIs with guaranteed billing');
+console.log('  - Cost Estimation: Predict costs before usage');

@@ -16,6 +16,12 @@ This test suite demonstrates all major SDK features:
 11. Audit Trail - Track who did what with detailed metadata
 12. Correlation ID - Link runs to your distributed traces
 13. Fine-Grained Runs - start_run, emit_event, end_run, get_run_timeline
+14. Event Normalization - snake_case event keys in record_run
+15. Batch Events - emit_events_batch for multiple events at once
+16. wrap_api_call - Wrap external API calls with guaranteed usage recording
+17. DripCore - Minimal client (drip.core.Drip) for pilots
+18. List Meters - Discover available pricing meters
+19. Cost Estimation - Estimate costs from hypothetical usage
 
 Installation:
     pip install drip-sdk
