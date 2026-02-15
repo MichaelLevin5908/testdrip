@@ -23,12 +23,23 @@ This test suite demonstrates all major SDK features:
 18. List Meters - Discover available pricing meters
 19. Cost Estimation - Estimate costs from hypothetical usage
 
-Installation:
-    pip install drip-sdk
+Setup:
+    1. Install the SDK:
+       pip install drip-sdk
 
-Before running:
-    export DRIP_API_KEY="your_secret_key_here"
-    python test_drip_sdk.py
+    2. Get your API key from the Drip dashboard (https://drip-app-hlunj.ondigitalocean.app)
+       or from your .env file
+
+    3. Set environment variable and run:
+       export DRIP_API_KEY="pk_live_..."
+       python test_drip_sdk.py
+
+How it works:
+    - The test automatically creates test customers (no manual setup needed)
+    - Customers are created with random wallet addresses and IDs
+    - Usage is tracked against these customers, then verified
+    - Tests that require pricing plans (charge, wrap_api_call, estimates)
+      show NOTE instead of FAIL when no plan is configured
 
 What this tests:
 - ✅ Customer attribution (which customer used what)

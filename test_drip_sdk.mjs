@@ -22,12 +22,23 @@
  * 17. List Meters - Discover available pricing meters
  * 18. Cost Estimation - Estimate costs from hypothetical usage
  *
- * Installation:
- *     npm install @drip-sdk/node
+ * Setup:
+ *     1. Install the SDK:
+ *        npm install @drip-sdk/node
  *
- * Before running:
- *     export DRIP_API_KEY="your_secret_key_here"
- *     node test_drip_sdk.mjs
+ *     2. Get your API key from the Drip dashboard (https://drip-app-hlunj.ondigitalocean.app)
+ *        or from your .env file
+ *
+ *     3. Set environment variable and run:
+ *        export DRIP_API_KEY="pk_live_..."
+ *        node test_drip_sdk.mjs
+ *
+ * How it works:
+ *   - The test automatically creates test customers (no manual setup needed)
+ *   - Customers are created with random wallet addresses and IDs
+ *   - Usage is tracked against these customers, then verified
+ *   - Tests that require pricing plans (charge, wrapApiCall, estimates)
+ *     show NOTE instead of FAIL when no plan is configured
  *
  * What this tests:
  * - Customer attribution (which customer used what)
