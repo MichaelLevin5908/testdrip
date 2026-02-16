@@ -13,7 +13,11 @@
     "dev": "tsx src/index.ts",
     "check": "tsx src/index.ts check",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/",
+    "test:unit": "vitest run tests/smoke tests/unit tests/contract tests/module",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest tests/"
   },
   "keywords": [
     "drip",
@@ -32,7 +36,8 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"
