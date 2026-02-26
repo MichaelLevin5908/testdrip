@@ -301,7 +301,7 @@ if (!dripSk) {
     try {
       const updated = await dripSk.updateWebhook(webhookId, {
         description: `Updated E2E webhook ${tag}`,
-        events: ['charge.succeeded', 'charge.failed', 'settlement.completed'],
+        events: ['charge.succeeded', 'charge.failed', 'transaction.confirmed'],
       });
       ok('updateWebhook (SDK)', `events=${updated.events?.length ?? '?'}`);
     } catch (e) { fail('updateWebhook (SDK)', e); }
