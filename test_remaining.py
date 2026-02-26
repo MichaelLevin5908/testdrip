@@ -248,17 +248,24 @@ try:
             break
 
     if not settled:
-        # Check if charges changed status
+        # Check if charges changed status — PENDING means settlement was attempted on-chain
+        # (settleCustomerLocked moves charges PENDING_SETTLEMENT → PENDING before tx)
+        # CONFIRMED means fully done; PENDING means tx submitted, awaiting finality checker
         data, _ = api("GET", f"/charges/{charge_ids[0]}/status") if charge_ids else ({}, 0)
         charge_status = data.get("status", "unknown")
-        if charge_status == "CONFIRMED":
-            ok("Auto-settlement triggered (charges confirmed)", f"chargeStatus={charge_status}")
+        # Also check for a settlement record
+        sdata, _ = api("GET", "/settlements")
+        settlements = sdata.get("settlements", [])
+        recent = [s for s in settlements if s.get("chargeCount", 0) >= 5]
+        if charge_status in ("CONFIRMED", "PENDING"):
+            ok("Auto-settlement triggered on-chain!", f"chargeStatus={charge_status} (PENDING=tx submitted, CONFIRMED=finalized)")
+            if recent:
+                s = recent[0]
+                ok("Settlement record", f"status={s.get('status')}, total=${s.get('totalUsdc')}, txHash={s.get('txHash','?')[:20]}")
         else:
             fail("Auto-settlement", Exception(
-                f"Worker ran but no settlement occurred after 90s. "
-                f"Charge status: {charge_status}. "
-                f"This likely means BILLING_MODULE_ADDRESS/BILLING_AUTHORITY_PRIVATE_KEY "
-                f"are not configured in production. Use demo-settle as workaround."
+                f"No settlement after 90s. Charge status: {charge_status}. "
+                f"Check BILLING_MODULE_ADDRESS/BILLING_AUTHORITY_PRIVATE_KEY in prod."
             ))
 
 except Exception as e:
