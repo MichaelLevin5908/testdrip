@@ -1,15 +1,17 @@
 /**
- * test_sdk_coverage.mjs — Tests all previously-untested JS SDK methods
+ * test_sdk_coverage.mjs — Comprehensive E2E tests for the JS SDK
  *
- * Covers:
- *   - getOrCreateCustomer (idempotent create)
- *   - checkEntitlement (quota check)
- *   - getCharge / getChargeStatus (charge detail operations)
- *   - getRun (run details)
- *   - listWorkflows (workflow listing)
- *   - estimateFromUsage (historical cost estimation)
- *   - Webhook CRUD (create, get, list, update, test, rotate, delete)
- *   - Subscription CRUD (create, get, list, update, pause, resume, cancel)
+ * Covers (33 methods):
+ *   Customers: createCustomer, getCustomer, listCustomers, getOrCreateCustomer, getBalance
+ *   Charges:   charge, getCharge, listCharges, getChargeStatus
+ *   Usage:     trackUsage
+ *   Runs:      createWorkflow, startRun, emitEvent, emitEventsBatch, endRun,
+ *              getRun, getRunTimeline, recordRun, listWorkflows
+ *   Billing:   checkEntitlement, estimateFromUsage, listMeters
+ *   Webhooks:  createWebhook, getWebhook, listWebhooks, updateWebhook,
+ *              testWebhook, rotateWebhookSecret, deleteWebhook
+ *   Subscriptions: create, get, list, update, pause, resume, cancel
+ *   Utilities: ping
  *
  * Prerequisite:
  *   npm install @drip-sdk/node
@@ -81,6 +83,52 @@ try {
   customerId = c.id;
   ok('createCustomer', `id=${customerId}`);
 } catch (e) { fail('createCustomer', e); process.exit(1); }
+
+
+// ═════════════════════════════════════════════════════════════
+section('1b. CUSTOMER READ — getCustomer, listCustomers, getBalance');
+// ═════════════════════════════════════════════════════════════
+
+// getCustomer
+try {
+  const c = await drip.getCustomer(customerId);
+  if (c.id === customerId) {
+    ok('getCustomer', `extId=${c.externalCustomerId}, address=${c.onchainAddress?.slice(0, 10) ?? 'none'}...`);
+  } else {
+    fail('getCustomer', new Error(`ID mismatch: expected ${customerId}, got ${c.id}`));
+  }
+} catch (e) { fail('getCustomer', e); }
+
+// listCustomers
+try {
+  const list = await drip.listCustomers({ limit: 5 });
+  ok('listCustomers', `count=${list.count ?? list.data?.length ?? '?'}, first=${list.data?.[0]?.id ?? 'N/A'}`);
+} catch (e) { fail('listCustomers', e); }
+
+// getBalance
+try {
+  const bal = await drip.getBalance(customerId);
+  ok('getBalance', `usdc=${bal.balanceUSDC ?? bal.balanceUsdc ?? '0'}, native=${bal.balanceNative ?? '0'}`);
+} catch (e) {
+  if (e.statusCode === 404 || e.message?.includes('not found')) {
+    skip('getBalance', 'No on-chain account provisioned');
+  } else {
+    fail('getBalance', e);
+  }
+}
+
+
+// ═════════════════════════════════════════════════════════════
+section('1c. PING — health check');
+// ═════════════════════════════════════════════════════════════
+try {
+  const health = await drip.ping();
+  if (health.ok || health.status) {
+    ok('ping', `ok=${health.ok}, latency=${health.latencyMs}ms`);
+  } else {
+    fail('ping', new Error(`Unexpected response: ${JSON.stringify(health).slice(0, 100)}`));
+  }
+} catch (e) { fail('ping', e); }
 
 
 // ═════════════════════════════════════════════════════════════
@@ -192,26 +240,105 @@ if (chargeId) {
 
 
 // ═════════════════════════════════════════════════════════════
-section('5. RUNS — getRun, listWorkflows');
+section('4b. CHARGES — listCharges');
+// ═════════════════════════════════════════════════════════════
+try {
+  const list = await drip.listCharges({ limit: 5 });
+  ok('listCharges', `count=${list.count ?? list.data?.length ?? '?'}, first=${list.data?.[0]?.id ?? 'N/A'}`);
+} catch (e) { fail('listCharges', e); }
+
+
+// ═════════════════════════════════════════════════════════════
+section('4c. USAGE — trackUsage (internal, no billing)');
+// ═════════════════════════════════════════════════════════════
+try {
+  const result = await drip.trackUsage({
+    customerId,
+    meter: 'api_calls',
+    quantity: 42,
+    description: `E2E coverage test ${tag}`,
+    metadata: { source: 'test_sdk_coverage' },
+  });
+  ok('trackUsage', `eventId=${result.usageEventId ?? result.id ?? 'ok'}`);
+} catch (e) {
+  if (e.statusCode === 404 || e.message?.includes('pricing') || e.message?.includes('not found')) {
+    skip('trackUsage', `${e.message?.slice(0, 80)}`);
+  } else {
+    fail('trackUsage', e);
+  }
+}
+
+
+// ═════════════════════════════════════════════════════════════
+section('5. RUNS — full lifecycle (startRun, emitEvent, emitEventsBatch, endRun, getRunTimeline)');
 // ═════════════════════════════════════════════════════════════
 
-// 5a: Create a run via recordRun, then fetch with getRun
+// 5a: createWorkflow (standalone)
+let workflowId = null;
 try {
-  const rr = await drip.recordRun({
-    customerId,
-    workflow: `cov-agent-${tag}`,
-    events: [
-      { eventType: 'llm.call', quantity: 200, units: 'tokens' },
-      { eventType: 'tool.call', quantity: 1 },
-    ],
-    status: 'COMPLETED',
-    metadata: { test: 'coverage' },
+  const wf = await drip.createWorkflow({
+    name: `E2E Workflow ${tag}`,
+    slug: `e2e_workflow_${tag}`,
+    productSurface: 'AGENT',
   });
-  runId = rr.run?.id;
-  ok('recordRun (setup)', `runId=${runId}`);
-} catch (e) { fail('recordRun (setup)', e); }
+  workflowId = wf.id;
+  ok('createWorkflow', `id=${workflowId}, name=${wf.name}`);
+} catch (e) { fail('createWorkflow', e); }
 
-// 5b: getRun
+// 5b: startRun
+try {
+  const run = await drip.startRun({
+    customerId,
+    workflowId: workflowId ?? undefined,
+    workflow: workflowId ? undefined : `e2e_workflow_${tag}`,
+    metadata: { test: 'lifecycle' },
+  });
+  runId = run.id ?? run.run?.id;
+  ok('startRun', `runId=${runId}`);
+} catch (e) { fail('startRun', e); }
+
+// 5c: emitEvent (single)
+if (runId) {
+  try {
+    const evt = await drip.emitEvent({
+      runId,
+      eventType: 'llm.call',
+      quantity: 500,
+      units: 'tokens',
+      description: 'GPT-4 completion',
+      costUnits: 0.015,
+    });
+    ok('emitEvent', `id=${evt.id ?? evt.eventId ?? 'ok'}, type=llm.call`);
+  } catch (e) { fail('emitEvent', e); }
+} else {
+  skip('emitEvent', 'No run ID available');
+}
+
+// 5d: emitEventsBatch
+if (runId) {
+  try {
+    const batch = await drip.emitEventsBatch([
+      { runId, eventType: 'tool.call', quantity: 1, description: 'web_search' },
+      { runId, eventType: 'tool.call', quantity: 1, description: 'code_exec' },
+      { runId, eventType: 'llm.call', quantity: 300, units: 'tokens', description: 'follow-up' },
+    ]);
+    ok('emitEventsBatch', `created=${batch.created}, duplicates=${batch.duplicates}, skipped=${batch.skipped}`);
+  } catch (e) { fail('emitEventsBatch', e); }
+} else {
+  skip('emitEventsBatch', 'No run ID available');
+}
+
+// 5e: endRun
+if (runId) {
+  try {
+    const ended = await drip.endRun(runId, { status: 'COMPLETED' });
+    ok('endRun', `status=${ended.status}, events=${ended.eventCount ?? '?'}, duration=${ended.durationMs ?? '?'}ms`);
+  } catch (e) { fail('endRun', e); }
+} else {
+  skip('endRun', 'No run ID available');
+}
+
+// 5f: getRun
 if (runId) {
   try {
     const run = await drip.getRun(runId);
@@ -225,7 +352,35 @@ if (runId) {
   skip('getRun', 'No run ID available');
 }
 
-// 5c: listWorkflows
+// 5g: getRunTimeline
+if (runId) {
+  try {
+    const timeline = await drip.getRunTimeline(runId, { includeAnomalies: true });
+    const evtCount = timeline.summary?.totalEvents ?? timeline.events?.length ?? '?';
+    ok('getRunTimeline', `events=${evtCount}, status=${timeline.status ?? '?'}`);
+  } catch (e) { fail('getRunTimeline', e); }
+} else {
+  skip('getRunTimeline', 'No run ID available');
+}
+
+// 5h: recordRun (one-shot convenience method)
+let recordedRunId = null;
+try {
+  const rr = await drip.recordRun({
+    customerId,
+    workflow: `cov-agent-${tag}`,
+    events: [
+      { eventType: 'llm.call', quantity: 200, units: 'tokens' },
+      { eventType: 'tool.call', quantity: 1 },
+    ],
+    status: 'COMPLETED',
+    metadata: { test: 'coverage' },
+  });
+  recordedRunId = rr.run?.id;
+  ok('recordRun', `runId=${recordedRunId}`);
+} catch (e) { fail('recordRun', e); }
+
+// 5i: listWorkflows
 try {
   const wf = await drip.listWorkflows();
   ok('listWorkflows', `count=${wf.count}, first=${wf.data?.[0]?.name ?? 'N/A'}`);
@@ -251,6 +406,17 @@ try {
     fail('estimateFromUsage', e);
   }
 }
+
+
+// ═════════════════════════════════════════════════════════════
+section('6b. PRICING — listMeters');
+// ═════════════════════════════════════════════════════════════
+try {
+  const meters = await drip.listMeters();
+  const count = meters.data?.length ?? meters.count ?? '?';
+  const names = meters.data?.slice(0, 3).map(m => m.meter ?? m.name).join(', ') ?? 'N/A';
+  ok('listMeters', `count=${count}, first=[${names}]`);
+} catch (e) { fail('listMeters', e); }
 
 
 // ═════════════════════════════════════════════════════════════
