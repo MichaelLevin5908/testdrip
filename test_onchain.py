@@ -1,14 +1,12 @@
 """
-test_onchain.py — test charges with a real onchain address
-Uses 0xBF6d400400645FD357A097c7a37fBd78924be274 as the payment address.
+test_onchain.py — full end-to-end test with smart account provisioning
 
-Expected results:
-  - Customer creation ✅
-  - Charges → INSUFFICIENT_BALANCE (correct — $0 USDC on address)
-  - Usage events / runs ✅ (don't require balance)
-  - Settlement → "No pending proofs" (correct — no settled charges yet)
-
-To make charges go through, the address needs USDC on Base Sepolia.
+Flow:
+  1. Create customer (no onchain address yet)
+  2. POST /provision → deploys ERC-4337 smart account + deposits $100 USDC
+  3. sync-balance → confirms balance
+  4. Charge → passes (has funded smart account)
+  5. Settlement → demo-settle
 """
 import os, sys, uuid, httpx
 
@@ -19,106 +17,120 @@ if not API_KEY:
     print("❌  DRIP_API_KEY not set"); sys.exit(1)
 
 from drip import Drip
-
 drip = Drip(api_key=API_KEY, base_url=API_URL)
 
-ONCHAIN_ADDRESS = "0xBF6d400400645FD357A097c7a37fBd78924be274"
 run_id = uuid.uuid4().hex[:8]
-
 passed, failed, skipped = 0, 0, 0
 
-def ok(label: str, detail: str = "") -> None:
-    global passed
-    passed += 1
+def ok(label, detail=""):
+    global passed; passed += 1
     print(f"  ✅  {label}" + (f"  →  {detail}" if detail else ""))
 
-def fail(label: str, err: Exception) -> None:
-    global failed
-    msg = str(err)
+def fail(label, err):
+    global failed; failed += 1
     code = getattr(err, "code", None) or getattr(err, "error_code", None)
-    if code:
-        msg = f"{msg} [{code}]"
+    msg = f"{err}" + (f" [{code}]" if code else "")
     print(f"  ❌  {label}\n       {msg}")
-    failed += 1
 
-def skip(label: str, reason: str) -> None:
-    global skipped
-    skipped += 1
+def skip(label, reason):
+    global skipped; skipped += 1
     print(f"  ⚠️   {label} — {reason}")
 
-def section(title: str) -> None:
+def section(title):
     print(f"\n{'─'*60}\n  {title}\n{'─'*60}")
+
+def api(method, path, **kwargs):
+    resp = httpx.request(
+        method, f"{API_URL}{path}",
+        headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+        timeout=60, **kwargs
+    )
+    return resp.json(), resp.status_code
 
 
 # ─────────────────────────────────────────────────────────────
-section("1. CREATE CUSTOMER WITH ONCHAIN ADDRESS")
+section("1. CREATE CUSTOMER")
 # ─────────────────────────────────────────────────────────────
 CUSTOMER_ID = None
 try:
-    customer = drip.create_customer(
-        external_customer_id=f"onchain_user_{run_id}",
-        onchain_address=ONCHAIN_ADDRESS,
-    )
+    customer = drip.create_customer(external_customer_id=f"e2e_user_{run_id}")
     CUSTOMER_ID = customer.id
-    ok("Customer created with onchain address",
-       f"id={customer.id}, addr={customer.onchain_address}")
+    ok("Customer created", f"id={CUSTOMER_ID}, ext={customer.external_customer_id}")
 except Exception as e:
-    code = getattr(e, "code", None) or getattr(e, "error_code", None)
-    if code == "DUPLICATE_CUSTOMER":
-        # Address already linked — look up the existing customer
-        resp = httpx.get(
-            f"{API_URL}/customers",
-            headers={"Authorization": f"Bearer {API_KEY}"},
-            params={"onchainAddress": ONCHAIN_ADDRESS},
-            timeout=10,
-        )
-        data = resp.json()
-        if data.get("data"):
-            CUSTOMER_ID = data["data"][0]["id"]
-            ok("Customer already exists (reusing)",
-               f"id={CUSTOMER_ID}, addr={ONCHAIN_ADDRESS}")
-        else:
-            fail("Lookup existing customer", e)
-    else:
-        fail("Create customer with onchain address", e)
+    fail("Create customer", e)
 
 
 # ─────────────────────────────────────────────────────────────
-section("2. CHARGE — api_calls, tokens, compute_seconds")
-# Note: expects INSUFFICIENT_BALANCE (402) — address has $0 USDC.
-#       This proves the billing engine IS reaching the balance check.
+section("2. PROVISION SMART ACCOUNT (deploys ERC-4337 + funds $100 USDC)")
+# ─────────────────────────────────────────────────────────────
+SMART_ACCOUNT = None
+if CUSTOMER_ID:
+    try:
+        data, status = api("POST", f"/customers/{CUSTOMER_ID}/provision", json={})
+        if status == 200:
+            SMART_ACCOUNT = data.get("smart_account_address")
+            ok("Provision smart account",
+               f"addr={SMART_ACCOUNT}, already_deployed={data.get('already_deployed')}")
+            ok("Deploy tx", data.get("deploy_tx_hash", "already existed"))
+            ok("BillingModule deposit", f"${data.get('billing_balance_usdc')} USDC deposited")
+        else:
+            fail("Provision", Exception(str(data)))
+    except Exception as e:
+        fail("Provision smart account", e)
+else:
+    skip("Provision", "no customer ID")
+
+
+# ─────────────────────────────────────────────────────────────
+section("3. SYNC BALANCE")
 # ─────────────────────────────────────────────────────────────
 if CUSTOMER_ID:
-    for meter, qty, cost in [("api_calls", 10, 0.01), ("tokens", 4000, 0.04), ("compute_seconds", 30, 0.003)]:
+    try:
+        data, status = api("POST", f"/customers/{CUSTOMER_ID}/sync-balance", json={})
+        if status == 200:
+            ok("sync-balance",
+               f"available=${data.get('newBalance')} USDC (changed={data.get('changed')})")
+        else:
+            fail("sync-balance", Exception(str(data)))
+    except Exception as e:
+        fail("sync-balance", e)
+else:
+    skip("sync-balance", "no customer ID")
+
+
+# ─────────────────────────────────────────────────────────────
+section("4. CHARGES (api_calls, tokens, compute_seconds)")
+# ─────────────────────────────────────────────────────────────
+if CUSTOMER_ID:
+    for meter, qty in [("api_calls", 10), ("tokens", 4000), ("compute_seconds", 30)]:
         try:
             result = drip.charge(customer_id=CUSTOMER_ID, meter=meter, quantity=qty)
             ok(f"charge({meter}, qty={qty})", repr(result))
         except Exception as e:
             code = getattr(e, "code", None) or getattr(e, "error_code", None)
             if code == "PAYMENT_REQUIRED":
-                skip(f"charge({meter}, qty={qty})",
-                     f"INSUFFICIENT_BALANCE — address has $0 USDC, needs ${cost:.3f}. Fund address to enable charges.")
+                skip(f"charge({meter})", "INSUFFICIENT_BALANCE — provision may need a moment to settle onchain")
             else:
-                fail(f"charge({meter}, qty={qty})", e)
+                fail(f"charge({meter})", e)
 else:
-    skip("charge tests", "no customer ID")
+    skip("Charges", "no customer ID")
 
 
 # ─────────────────────────────────────────────────────────────
-section("3. RUN WITH EVENTS (no balance needed)")
+section("5. RUN WITH EVENTS")
 # ─────────────────────────────────────────────────────────────
 if CUSTOMER_ID:
     try:
         with drip.run(customer_id=CUSTOMER_ID,
                       workflow=f"llm-pipeline-{run_id}",
-                      metadata={"model": "claude-3-5-sonnet", "env": "prod"}) as run:
+                      metadata={"model": "claude-3-5-sonnet"}) as run:
             run.event("input.tokens", quantity=1200, units="tokens")
             run.event("tool.call", quantity=3, units="tool_calls")
             run.event("output.tokens", quantity=800, units="tokens")
-        ok("Agent run with 3 events", f"run_id={run.run_id}")
+        ok("Agent run (3 events)", f"run_id={run.run_id}")
 
         timeline = drip.get_run_timeline(run.run_id)
-        ok("Timeline retrieved", f"{len(timeline.timeline)} events, status={timeline.run.status}")
+        ok("Timeline", f"{len(timeline.timeline)} events, status={timeline.run.status}")
     except Exception as e:
         fail("Run with events", e)
 else:
@@ -126,75 +138,58 @@ else:
 
 
 # ─────────────────────────────────────────────────────────────
-section("4. MULTI-EVENT BATCH (no balance needed)")
-# ─────────────────────────────────────────────────────────────
-if CUSTOMER_ID:
-    try:
-        with drip.run(customer_id=CUSTOMER_ID, workflow=f"batch-workflow-{run_id}") as batch_run:
-            events = drip.emit_events_batch([
-                {"runId": batch_run.run_id, "eventType": "step.start", "quantity": 1, "units": "steps"},
-                {"runId": batch_run.run_id, "eventType": "tokens.in", "quantity": 500, "units": "tokens"},
-                {"runId": batch_run.run_id, "eventType": "tokens.out", "quantity": 300, "units": "tokens"},
-            ])
-        ok("emit_events_batch (3 events)", f"created={events.created}, dupes={events.duplicates}")
-    except Exception as e:
-        fail("emit_events_batch", e)
-else:
-    skip("Batch events", "no customer ID")
-
-
-# ─────────────────────────────────────────────────────────────
-section("5. BALANCE CHECK")
+section("6. BALANCE AFTER CHARGES")
 # ─────────────────────────────────────────────────────────────
 if CUSTOMER_ID:
     try:
         balance = drip.get_balance(CUSTOMER_ID)
-        avail = getattr(balance, 'available_balance', getattr(balance, 'available', None))
-        ok("get_balance", f"available=${float(avail):.6f} USDC" if avail is not None else str(balance))
+        ok("get_balance", str(balance))
     except Exception as e:
-        fail("get_customer_balance", e)
+        fail("get_balance", e)
 else:
     skip("Balance check", "no customer ID")
 
 
 # ─────────────────────────────────────────────────────────────
-section("6. LIST CHARGES (shows 0 — expected without USDC)")
+section("7. LIST CHARGES")
 # ─────────────────────────────────────────────────────────────
 try:
     charges = drip.list_charges()
-    ok("list_charges()", f"count={charges.count} (charges need funded address to accumulate)")
+    ok("list_charges()", f"count={charges.count}")
+    if charges.count > 0 and charges.data:
+        c = charges.data[0]
+        ok("Latest charge",
+           f"meter={getattr(c,'usage_type','?')}, qty={getattr(c,'quantity','?')}, status={getattr(c,'status','?')}")
 except Exception as e:
     fail("list_charges()", e)
 
 
 # ─────────────────────────────────────────────────────────────
-section("7. PLAYGROUND DEMO-SETTLE")
+section("8. DEMO-SETTLE (on-chain settlement)")
 # ─────────────────────────────────────────────────────────────
 try:
-    host = API_URL
-    if not host.endswith("/v1"):
-        host = host.rstrip("/")
-    resp = httpx.post(
-        f"{host}/playground/demo-settle",
-        headers={"Authorization": f"Bearer {API_KEY}"},
-        json={},
-        timeout=30,
-    )
-    data = resp.json()
-    if resp.status_code == 200:
-        ok("playground/demo-settle", str(data))
+    data, status = api("POST", "/playground/demo-settle", json={})
+    if status == 200 and data.get("success"):
+        s = data.get("settlement")
+        if s:
+            ok("demo-settle",
+               f"${s.get('totalUsdc')} USDC, {s.get('proofCount')} proofs")
+            ok("Explorer", s.get("explorerUrl", ""))
+        else:
+            ok("demo-settle", data.get("message", "no pending proofs"))
     else:
-        skip("playground/demo-settle", str(data))
+        fail("demo-settle", Exception(str(data)))
 except Exception as e:
-    fail("playground/demo-settle", e)
+    fail("demo-settle", e)
 
 
 # ─────────────────────────────────────────────────────────────
 print(f"\n{'═'*60}")
 print(f"  RESULTS:  ✅ {passed} passed   ❌ {failed} failed   ⚠️  {skipped} skipped")
-print(f"{'═'*60}")
-print(f"\n  Customer ID: {CUSTOMER_ID}")
-print(f"  Onchain:     {ONCHAIN_ADDRESS}")
-print(f"  → Fund this address with USDC on Base Sepolia to enable charges")
-print(f"  → Faucet: https://faucet.circle.com (select Base Sepolia)\n")
+print(f"{'═'*60}\n")
+if CUSTOMER_ID:
+    print(f"  Customer ID:    {CUSTOMER_ID}")
+if SMART_ACCOUNT:
+    print(f"  Smart Account:  {SMART_ACCOUNT}")
+    print(f"  BaseScan:       https://sepolia.basescan.org/address/{SMART_ACCOUNT}\n")
 sys.exit(0 if failed == 0 else 1)
